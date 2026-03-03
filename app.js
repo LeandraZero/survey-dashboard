@@ -438,10 +438,11 @@ function setSelectOptions(selectId, options) {
 function getSelectedFilterDefs() {
   const node = document.getElementById("analysisFilter");
   const selected = [...node.selectedOptions].map((x) => x.value);
-  if (!selected.length || selected.includes("all")) {
+  if (!selected.length || (selected.length === 1 && selected[0] === "all")) {
     return [FILTER_OPTIONS[0]];
   }
   return selected
+    .filter((id) => id !== "all")
     .map((id) => FILTER_OPTIONS.find((x) => x.id === id))
     .filter(Boolean);
 }
