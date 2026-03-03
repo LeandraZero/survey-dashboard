@@ -134,6 +134,7 @@ const FILTER_OPTIONS = [
 let rawRows = [];
 let analysisRows = [];
 let lastUploadAt = "";
+let lastImportStats = null;
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -211,6 +212,16 @@ function fmtTime(ts) {
   const d = new Date(ts);
   const p = (x) => String(x).padStart(2, "0");
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function setImportProgress(percent, status) {
+  const p = Math.max(0, Math.min(100, percent));
+  const bar = document.getElementById("importBar");
+  const percentNode = document.getElementById("importPercent");
+  const statusNode = document.getElementById("importStatus");
+  if (bar) bar.style.width = `${p}%`;
+  if (percentNode) percentNode.textContent = `${Math.round(p)}%`;
+  if (statusNode) statusNode.textContent = status;
 }
 
 function findQ2ColumnSuffix(code, row) {
@@ -467,6 +478,20 @@ function renderUploadMeta() {
   ].join("\n");
   document.getElementById("sidebarMeta").textContent = msg;
   document.getElementById("uploadLog").textContent = msg;
+
+  const statsNode = document.getElementById("importStats");
+  if (!statsNode) return;
+  if (!lastImportStats) {
+    statsNode.innerHTML = "暂无导入统计。";
+    return;
+  }
+  statsNode.innerHTML = [
+    `导入文件数：${lastImportStats.files}`,
+    `读取总行数：${lastImportStats.readRows}`,
+    `去重后总样本：${lastImportStats.dedupRows}`,
+    `剔除终止样本（q2=11）：${lastImportStats.excludedRows}`,
+    `最终分析样本：${lastImportStats.analysisRows}`,
+  ].join("<br/>");
 }
 
 async function saveLocal() {
@@ -511,16 +536,30 @@ async function importFiles() {
     return;
   }
 
+  setImportProgress(0, "开始读取文件...");
   let merged = [...rawRows];
-  for (const file of files) {
+  let readRows = 0;
+  for (let i = 0; i < files.length; i += 1) {
+    const file = files[i];
+    setImportProgress((i / files.length) * 100, `读取中：${file.name}`);
     const rows = await readFileRows(file);
+    readRows += rows.length;
     merged = merged.concat(rows);
   }
+  setImportProgress(80, "去重与样本筛选中...");
 
   rawRows = dedupRows(merged);
   analysisRows = rawRows.filter(isContinueRespondent);
   lastUploadAt = Date.now();
   await saveLocal();
+  lastImportStats = {
+    files: files.length,
+    readRows,
+    dedupRows: rawRows.length,
+    excludedRows: rawRows.length - analysisRows.length,
+    analysisRows: analysisRows.length,
+  };
+  setImportProgress(100, "导入完成");
   renderAll();
 }
 
@@ -529,10 +568,12 @@ async function clearLocalData() {
   rawRows = [];
   analysisRows = [];
   lastUploadAt = "";
+  lastImportStats = null;
   try {
     await idbDel(RAW_ROWS_KEY);
   } catch {}
   localStorage.removeItem(STORAGE_UPLOAD_AT_KEY);
+  setImportProgress(0, "未开始导入");
   renderAll();
 }
 
@@ -585,6 +626,7 @@ async function bootstrap() {
 
   bindTabs();
   bindActions();
+  setImportProgress(0, "未开始导入");
   renderAll();
 }
 

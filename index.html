@@ -108,6 +108,16 @@
             <button id="btnImport">导入文件</button>
             <button id="btnClear" class="ghost">清空本地数据</button>
           </div>
+          <div class="import-progress">
+            <div class="progress-head">
+              <span id="importStatus">未开始导入</span>
+              <span id="importPercent">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div id="importBar"></div>
+            </div>
+          </div>
+          <div class="import-stats" id="importStats"></div>
         </div>
 
         <div class="upload-log" id="uploadLog"></div>
