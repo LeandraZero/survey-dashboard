@@ -445,7 +445,7 @@ function renderCross() {
   const overall = getQuestionDistribution(filtered, qDef);
   drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${filtered.length}）`);
 
-  const sortedCols = [...overall.items].sort((a, b) => b.ratio - a.ratio).slice(0, 6);
+  const sortedCols = [...overall.items].sort((a, b) => b.ratio - a.ratio);
   const thead = document.querySelector("#crossTable thead");
   const tbody = document.querySelector("#crossTable tbody");
 
