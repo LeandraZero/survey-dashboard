@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>问卷看板</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: #f7f8fa;
+      color: #222;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e8ebf0;
+      border-radius: 10px;
+      padding: 14px;
+    }
+    h1 { margin: 0 0 10px 0; font-size: 22px; }
+    .meta { color: #5f6b7a; font-size: 13px; margin-bottom: 14px; }
+    .chart { height: 320px; }
+    .fallback { padding: 8px 4px; }
+    .f-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 56px;
+      gap: 8px;
+      align-items: center;
+      margin: 8px 0;
+      font-size: 12px;
+    }
+    .f-bar {
+      height: 10px;
+      background: #e6ecff;
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .f-fill { height: 100%; background: #3f7cff; border-radius: 6px; }
+    .table-wrap { overflow: auto; max-height: 320px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #eef1f5; padding: 8px 6px; text-align: left; }
+    th { background: #fafbfd; position: sticky; top: 0; }
+  </style>
+</head>
+<body>
+  <h1>原神问卷数据面板（继续作答样本口径）</h1>
+  <div class="meta" id="meta"></div>
+  <div class="grid">
+    <div class="card">
+      <h3>男女占比（Q34）</h3>
+      <div id="genderChart" class="chart"></div>
+    </div>
+    <div class="card">
+      <h3>整体渠道渗透（Q3）</h3>
+      <div id="q3Chart" class="chart"></div>
+    </div>
+    <div class="card">
+      <h3>整体第一心智（Q4，Top1）</h3>
+      <div id="q4Chart" class="chart"></div>
+    </div>
+    <div class="card">
+      <h3>9类内容心智占比（Q2 Strict）</h3>
+      <div id="q2Chart" class="chart"></div>
+    </div>
+    <div class="card" style="grid-column: 1 / -1;">
+      <h3>分场景第一心智（Top1）</h3>
+      <div style="margin-bottom: 10px;">
+        <label for="sceneSelect">选择场景：</label>
+        <select id="sceneSelect"></select>
+      </div>
+      <div id="sceneTop1Chart" class="chart"></div>
+      <div class="table-wrap">
+        <table id="sceneTable">
+          <thead>
+            <tr><th>排名</th><th>渠道</th><th>占比</th><th>样本</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+<script>
+const data = {"source_file": "/Users/zexuan.ling/Library/Application Support/miHoYo/HoYowave/Shell/File/Downloads/26141_米游社玩家心智摸底问卷_26948_1.csv", "raw_sample_size": 2503, "excluded_q2_11_count": 227, "sample_size": 2276, "gender": {"denominator": 2276, "items": [{"code": "1", "name": "男", "count": 1274, "ratio": 0.5598}, {"code": "2", "name": "女", "count": 454, "ratio": 0.1995}, {"code": "3", "name": "不方便透露", "count": 548, "ratio": 0.2408}]}, "q2_content_mindshare": {"denominator": 2276, "strict": [{"code": 1, "name": "抽卡决策/原石/强度对比", "count": 1307, "ratio": 0.5743}, {"code": 2, "name": "角色配队/养成/手法", "count": 1328, "ratio": 0.5835}, {"code": 3, "name": "探索解谜攻略", "count": 646, "ratio": 0.2838}, {"code": 4, "name": "剧情解析", "count": 855, "ratio": 0.3757}, {"code": 5, "name": "剧情讨论", "count": 989, "ratio": 0.4345}, {"code": 6, "name": "同人", "count": 592, "ratio": 0.2601}, {"code": 7, "name": "游戏外活动", "count": 211, "ratio": 0.0927}, {"code": 8, "name": "周边", "count": 464, "ratio": 0.2039}, {"code": 9, "name": "Cosplay", "count": 387, "ratio": 0.17}], "expanded": [{"code": 1, "name": "抽卡决策/原石/强度对比", "count": 1536, "ratio": 0.6749}, {"code": 2, "name": "角色配队/养成/手法", "count": 1557, "ratio": 0.6841}, {"code": 3, "name": "探索解谜攻略", "count": 875, "ratio": 0.3844}, {"code": 4, "name": "剧情解析", "count": 1084, "ratio": 0.4763}, {"code": 5, "name": "剧情讨论", "count": 1218, "ratio": 0.5351}, {"code": 6, "name": "同人", "count": 821, "ratio": 0.3607}, {"code": 7, "name": "游戏外活动", "count": 440, "ratio": 0.1933}, {"code": 8, "name": "周边", "count": 693, "ratio": 0.3045}, {"code": 9, "name": "Cosplay", "count": 616, "ratio": 0.2707}]}, "overall_channel_penetration": {"denominator": 2276, "items": [{"code": 1, "name": "抖音", "count": 959, "ratio": 0.4214}, {"code": 2, "name": "B站", "count": 1319, "ratio": 0.5795}, {"code": 3, "name": "小红书", "count": 343, "ratio": 0.1507}, {"code": 4, "name": "知乎", "count": 49, "ratio": 0.0215}, {"code": 5, "name": "lofter", "count": 127, "ratio": 0.0558}, {"code": 6, "name": "微博", "count": 93, "ratio": 0.0409}, {"code": 7, "name": "快手", "count": 391, "ratio": 0.1718}, {"code": 8, "name": "小黑盒", "count": 204, "ratio": 0.0896}, {"code": 9, "name": "taptap", "count": 190, "ratio": 0.0835}, {"code": 10, "name": "米游社", "count": 1243, "ratio": 0.5461}, {"code": 11, "name": "NGA", "count": 22, "ratio": 0.0097}, {"code": 12, "name": "百度贴吧", "count": 86, "ratio": 0.0378}, {"code": 13, "name": "QQ频道", "count": 147, "ratio": 0.0646}, {"code": 14, "name": "QQ空间", "count": 136, "ratio": 0.0598}, {"code": 15, "name": "微信、QQ群聊", "count": 942, "ratio": 0.4139}]}, "overall_first_mindshare": {"denominator": 2262, "items": [{"code": 1, "name": "抖音", "count": 488, "ratio": 0.2157}, {"code": 2, "name": "B站", "count": 671, "ratio": 0.2966}, {"code": 3, "name": "小红书", "count": 112, "ratio": 0.0495}, {"code": 4, "name": "知乎", "count": 8, "ratio": 0.0035}, {"code": 5, "name": "lofter", "count": 21, "ratio": 0.0093}, {"code": 6, "name": "微博", "count": 4, "ratio": 0.0018}, {"code": 7, "name": "快手", "count": 172, "ratio": 0.076}, {"code": 8, "name": "小黑盒", "count": 18, "ratio": 0.008}, {"code": 9, "name": "taptap", "count": 20, "ratio": 0.0088}, {"code": 10, "name": "米游社", "count": 313, "ratio": 0.1384}, {"code": 11, "name": "NGA", "count": 4, "ratio": 0.0018}, {"code": 12, "name": "百度贴吧", "count": 15, "ratio": 0.0066}, {"code": 13, "name": "QQ频道", "count": 24, "ratio": 0.0106}, {"code": 14, "name": "QQ空间", "count": 12, "ratio": 0.0053}, {"code": 15, "name": "微信、QQ群聊", "count": 380, "ratio": 0.168}]}, "scenes": [{"scene": "抽卡与原石", "penetration": {"denominator": 1898, "items": [{"code": 1, "name": "抖音", "count": 710, "ratio": 0.3741}, {"code": 2, "name": "B站", "count": 1038, "ratio": 0.5469}, {"code": 3, "name": "小红书", "count": 219, "ratio": 0.1154}, {"code": 4, "name": "知乎", "count": 13, "ratio": 0.0068}, {"code": 5, "name": "lofter", "count": 28, "ratio": 0.0148}, {"code": 6, "name": "微博", "count": 48, "ratio": 0.0253}, {"code": 7, "name": "快手", "count": 309, "ratio": 0.1628}, {"code": 8, "name": "小黑盒", "count": 132, "ratio": 0.0695}, {"code": 9, "name": "taptap", "count": 122, "ratio": 0.0643}, {"code": 10, "name": "米游社", "count": 846, "ratio": 0.4457}, {"code": 11, "name": "NGA", "count": 18, "ratio": 0.0095}, {"code": 12, "name": "百度贴吧", "count": 51, "ratio": 0.0269}, {"code": 13, "name": "QQ频道", "count": 68, "ratio": 0.0358}, {"code": 14, "name": "QQ空间", "count": 43, "ratio": 0.0227}, {"code": 15, "name": "微信、QQ群聊", "count": 507, "ratio": 0.2671}]}, "first_mindshare": {"denominator": 1883, "items": [{"code": 1, "name": "抖音", "count": 426, "ratio": 0.2262}, {"code": 2, "name": "B站", "count": 638, "ratio": 0.3388}, {"code": 3, "name": "小红书", "count": 88, "ratio": 0.0467}, {"code": 4, "name": "知乎", "count": 4, "ratio": 0.0021}, {"code": 5, "name": "lofter", "count": 2, "ratio": 0.0011}, {"code": 6, "name": "微博", "count": 5, "ratio": 0.0027}, {"code": 7, "name": "快手", "count": 171, "ratio": 0.0908}, {"code": 8, "name": "小黑盒", "count": 21, "ratio": 0.0112}, {"code": 9, "name": "taptap", "count": 14, "ratio": 0.0074}, {"code": 10, "name": "米游社", "count": 271, "ratio": 0.1439}, {"code": 11, "name": "NGA", "count": 4, "ratio": 0.0021}, {"code": 12, "name": "百度贴吧", "count": 14, "ratio": 0.0074}, {"code": 13, "name": "QQ频道", "count": 16, "ratio": 0.0085}, {"code": 14, "name": "QQ空间", "count": 9, "ratio": 0.0048}, {"code": 15, "name": "微信、QQ群聊", "count": 200, "ratio": 0.1062}]}}, {"scene": "配队养成", "penetration": {"denominator": 1862, "items": [{"code": 1, "name": "抖音", "count": 685, "ratio": 0.3679}, {"code": 2, "name": "B站", "count": 1035, "ratio": 0.5559}, {"code": 3, "name": "小红书", "count": 205, "ratio": 0.1101}, {"code": 4, "name": "知乎", "count": 23, "ratio": 0.0124}, {"code": 5, "name": "lofter", "count": 30, "ratio": 0.0161}, {"code": 6, "name": "微博", "count": 40, "ratio": 0.0215}, {"code": 7, "name": "快手", "count": 299, "ratio": 0.1606}, {"code": 8, "name": "小黑盒", "count": 117, "ratio": 0.0628}, {"code": 9, "name": "taptap", "count": 103, "ratio": 0.0553}, {"code": 10, "name": "米游社", "count": 876, "ratio": 0.4705}, {"code": 11, "name": "NGA", "count": 16, "ratio": 0.0086}, {"code": 12, "name": "百度贴吧", "count": 40, "ratio": 0.0215}, {"code": 13, "name": "QQ频道", "count": 68, "ratio": 0.0365}, {"code": 14, "name": "QQ空间", "count": 45, "ratio": 0.0242}, {"code": 15, "name": "微信、QQ群聊", "count": 476, "ratio": 0.2556}]}, "first_mindshare": {"denominator": 1853, "items": [{"code": 1, "name": "抖音", "count": 371, "ratio": 0.2002}, {"code": 2, "name": "B站", "count": 613, "ratio": 0.3308}, {"code": 3, "name": "小红书", "count": 90, "ratio": 0.0486}, {"code": 4, "name": "知乎", "count": 5, "ratio": 0.0027}, {"code": 5, "name": "lofter", "count": 4, "ratio": 0.0022}, {"code": 6, "name": "微博", "count": 8, "ratio": 0.0043}, {"code": 7, "name": "快手", "count": 170, "ratio": 0.0917}, {"code": 8, "name": "小黑盒", "count": 20, "ratio": 0.0108}, {"code": 9, "name": "taptap", "count": 12, "ratio": 0.0065}, {"code": 10, "name": "米游社", "count": 329, "ratio": 0.1775}, {"code": 11, "name": "NGA", "count": 6, "ratio": 0.0032}, {"code": 12, "name": "百度贴吧", "count": 11, "ratio": 0.0059}, {"code": 13, "name": "QQ频道", "count": 7, "ratio": 0.0038}, {"code": 14, "name": "QQ空间", "count": 9, "ratio": 0.0049}, {"code": 15, "name": "微信、QQ群聊", "count": 198, "ratio": 0.1069}]}}, {"scene": "探索解谜", "penetration": {"denominator": 1315, "items": [{"code": 1, "name": "抖音", "count": 442, "ratio": 0.3361}, {"code": 2, "name": "B站", "count": 766, "ratio": 0.5825}, {"code": 3, "name": "小红书", "count": 141, "ratio": 0.1072}, {"code": 4, "name": "知乎", "count": 17, "ratio": 0.0129}, {"code": 5, "name": "lofter", "count": 27, "ratio": 0.0205}, {"code": 6, "name": "微博", "count": 26, "ratio": 0.0198}, {"code": 7, "name": "快手", "count": 192, "ratio": 0.146}, {"code": 8, "name": "小黑盒", "count": 64, "ratio": 0.0487}, {"code": 9, "name": "taptap", "count": 55, "ratio": 0.0418}, {"code": 10, "name": "米游社", "count": 586, "ratio": 0.4456}, {"code": 11, "name": "NGA", "count": 10, "ratio": 0.0076}, {"code": 12, "name": "百度贴吧", "count": 27, "ratio": 0.0205}, {"code": 13, "name": "QQ频道", "count": 41, "ratio": 0.0312}, {"code": 14, "name": "QQ空间", "count": 22, "ratio": 0.0167}, {"code": 15, "name": "微信、QQ群聊", "count": 240, "ratio": 0.1825}]}, "first_mindshare": {"denominator": 1308, "items": [{"code": 1, "name": "抖音", "count": 257, "ratio": 0.1965}, {"code": 2, "name": "B站", "count": 535, "ratio": 0.409}, {"code": 3, "name": "小红书", "count": 52, "ratio": 0.0398}, {"code": 4, "name": "知乎", "count": 2, "ratio": 0.0015}, {"code": 5, "name": "lofter", "count": 2, "ratio": 0.0015}, {"code": 6, "name": "微博", "count": 4, "ratio": 0.0031}, {"code": 7, "name": "快手", "count": 109, "ratio": 0.0833}, {"code": 8, "name": "小黑盒", "count": 12, "ratio": 0.0092}, {"code": 9, "name": "taptap", "count": 10, "ratio": 0.0076}, {"code": 10, "name": "米游社", "count": 225, "ratio": 0.172}, {"code": 11, "name": "NGA", "count": 2, "ratio": 0.0015}, {"code": 12, "name": "百度贴吧", "count": 8, "ratio": 0.0061}, {"code": 13, "name": "QQ频道", "count": 9, "ratio": 0.0069}, {"code": 14, "name": "QQ空间", "count": 3, "ratio": 0.0023}, {"code": 15, "name": "微信、QQ群聊", "count": 78, "ratio": 0.0596}]}}, {"scene": "剧情解析", "penetration": {"denominator": 1084, "items": [{"code": 1, "name": "抖音", "count": 347, "ratio": 0.3201}, {"code": 2, "name": "B站", "count": 714, "ratio": 0.6587}, {"code": 3, "name": "小红书", "count": 128, "ratio": 0.1181}, {"code": 4, "name": "知乎", "count": 34, "ratio": 0.0314}, {"code": 5, "name": "lofter", "count": 37, "ratio": 0.0341}, {"code": 6, "name": "微博", "count": 31, "ratio": 0.0286}, {"code": 7, "name": "快手", "count": 125, "ratio": 0.1153}, {"code": 8, "name": "小黑盒", "count": 46, "ratio": 0.0424}, {"code": 9, "name": "taptap", "count": 51, "ratio": 0.047}, {"code": 10, "name": "米游社", "count": 444, "ratio": 0.4096}, {"code": 11, "name": "NGA", "count": 13, "ratio": 0.012}, {"code": 12, "name": "百度贴吧", "count": 32, "ratio": 0.0295}, {"code": 13, "name": "QQ频道", "count": 34, "ratio": 0.0314}, {"code": 14, "name": "QQ空间", "count": 24, "ratio": 0.0221}, {"code": 15, "name": "微信、QQ群聊", "count": 293, "ratio": 0.2703}]}, "first_mindshare": {"denominator": 1080, "items": [{"code": 1, "name": "抖音", "count": 186, "ratio": 0.1722}, {"code": 2, "name": "B站", "count": 502, "ratio": 0.4648}, {"code": 3, "name": "小红书", "count": 44, "ratio": 0.0407}, {"code": 4, "name": "知乎", "count": 7, "ratio": 0.0065}, {"code": 5, "name": "lofter", "count": 4, "ratio": 0.0037}, {"code": 6, "name": "微博", "count": 3, "ratio": 0.0028}, {"code": 7, "name": "快手", "count": 59, "ratio": 0.0546}, {"code": 8, "name": "小黑盒", "count": 3, "ratio": 0.0028}, {"code": 9, "name": "taptap", "count": 6, "ratio": 0.0056}, {"code": 10, "name": "米游社", "count": 140, "ratio": 0.1296}, {"code": 11, "name": "NGA", "count": 2, "ratio": 0.0019}, {"code": 12, "name": "百度贴吧", "count": 8, "ratio": 0.0074}, {"code": 13, "name": "QQ频道", "count": 6, "ratio": 0.0056}, {"code": 14, "name": "QQ空间", "count": 3, "ratio": 0.0028}, {"code": 15, "name": "微信、QQ群聊", "count": 107, "ratio": 0.0991}]}}, {"scene": "剧情讨论", "penetration": {"denominator": 1218, "items": [{"code": 1, "name": "抖音", "count": 386, "ratio": 0.3169}, {"code": 2, "name": "B站", "count": 755, "ratio": 0.6199}, {"code": 3, "name": "小红书", "count": 164, "ratio": 0.1346}, {"code": 4, "name": "知乎", "count": 24, "ratio": 0.0197}, {"code": 5, "name": "lofter", "count": 59, "ratio": 0.0484}, {"code": 6, "name": "微博", "count": 37, "ratio": 0.0304}, {"code": 7, "name": "快手", "count": 152, "ratio": 0.1248}, {"code": 8, "name": "小黑盒", "count": 55, "ratio": 0.0452}, {"code": 9, "name": "taptap", "count": 47, "ratio": 0.0386}, {"code": 10, "name": "米游社", "count": 519, "ratio": 0.4261}, {"code": 11, "name": "NGA", "count": 14, "ratio": 0.0115}, {"code": 12, "name": "百度贴吧", "count": 35, "ratio": 0.0287}, {"code": 13, "name": "QQ频道", "count": 45, "ratio": 0.0369}, {"code": 14, "name": "QQ空间", "count": 43, "ratio": 0.0353}, {"code": 15, "name": "微信、QQ群聊", "count": 420, "ratio": 0.3448}]}, "first_mindshare": {"denominator": 1209, "items": [{"code": 1, "name": "抖音", "count": 203, "ratio": 0.1679}, {"code": 2, "name": "B站", "count": 465, "ratio": 0.3846}, {"code": 3, "name": "小红书", "count": 48, "ratio": 0.0397}, {"code": 4, "name": "知乎", "count": 6, "ratio": 0.005}, {"code": 5, "name": "lofter", "count": 10, "ratio": 0.0083}, {"code": 6, "name": "微博", "count": 2, "ratio": 0.0017}, {"code": 7, "name": "快手", "count": 74, "ratio": 0.0612}, {"code": 8, "name": "小黑盒", "count": 9, "ratio": 0.0074}, {"code": 9, "name": "taptap", "count": 5, "ratio": 0.0041}, {"code": 10, "name": "米游社", "count": 131, "ratio": 0.1084}, {"code": 11, "name": "NGA", "count": 1, "ratio": 0.0008}, {"code": 12, "name": "百度贴吧", "count": 4, "ratio": 0.0033}, {"code": 13, "name": "QQ频道", "count": 7, "ratio": 0.0058}, {"code": 14, "name": "QQ空间", "count": 11, "ratio": 0.0091}, {"code": 15, "name": "微信、QQ群聊", "count": 233, "ratio": 0.1927}]}}, {"scene": "同人", "penetration": {"denominator": 821, "items": [{"code": 1, "name": "抖音", "count": 279, "ratio": 0.3398}, {"code": 2, "name": "B站", "count": 535, "ratio": 0.6516}, {"code": 3, "name": "小红书", "count": 153, "ratio": 0.1864}, {"code": 4, "name": "知乎", "count": 11, "ratio": 0.0134}, {"code": 5, "name": "lofter", "count": 151, "ratio": 0.1839}, {"code": 6, "name": "微博", "count": 49, "ratio": 0.0597}, {"code": 7, "name": "快手", "count": 128, "ratio": 0.1559}, {"code": 8, "name": "小黑盒", "count": 43, "ratio": 0.0524}, {"code": 9, "name": "taptap", "count": 32, "ratio": 0.039}, {"code": 10, "name": "米游社", "count": 333, "ratio": 0.4056}, {"code": 11, "name": "NGA", "count": 10, "ratio": 0.0122}, {"code": 12, "name": "百度贴吧", "count": 20, "ratio": 0.0244}, {"code": 13, "name": "QQ频道", "count": 39, "ratio": 0.0475}, {"code": 14, "name": "QQ空间", "count": 34, "ratio": 0.0414}, {"code": 15, "name": "微信、QQ群聊", "count": 199, "ratio": 0.2424}]}, "first_mindshare": {"denominator": 814, "items": [{"code": 1, "name": "抖音", "count": 144, "ratio": 0.1769}, {"code": 2, "name": "B站", "count": 310, "ratio": 0.3808}, {"code": 3, "name": "小红书", "count": 51, "ratio": 0.0627}, {"code": 4, "name": "知乎", "count": 1, "ratio": 0.0012}, {"code": 5, "name": "lofter", "count": 72, "ratio": 0.0885}, {"code": 6, "name": "微博", "count": 1, "ratio": 0.0012}, {"code": 7, "name": "快手", "count": 62, "ratio": 0.0762}, {"code": 8, "name": "小黑盒", "count": 8, "ratio": 0.0098}, {"code": 9, "name": "taptap", "count": 5, "ratio": 0.0061}, {"code": 10, "name": "米游社", "count": 80, "ratio": 0.0983}, {"code": 11, "name": "NGA", "count": 3, "ratio": 0.0037}, {"code": 12, "name": "百度贴吧", "count": 4, "ratio": 0.0049}, {"code": 13, "name": "QQ频道", "count": 4, "ratio": 0.0049}, {"code": 14, "name": "QQ空间", "count": 4, "ratio": 0.0049}, {"code": 15, "name": "微信、QQ群聊", "count": 65, "ratio": 0.0799}]}}, {"scene": "游戏外活动", "penetration": {"denominator": 440, "items": [{"code": 1, "name": "抖音", "count": 135, "ratio": 0.3068}, {"code": 2, "name": "B站", "count": 262, "ratio": 0.5955}, {"code": 3, "name": "小红书", "count": 81, "ratio": 0.1841}, {"code": 4, "name": "知乎", "count": 8, "ratio": 0.0182}, {"code": 5, "name": "lofter", "count": 20, "ratio": 0.0455}, {"code": 6, "name": "微博", "count": 36, "ratio": 0.0818}, {"code": 7, "name": "快手", "count": 47, "ratio": 0.1068}, {"code": 8, "name": "小黑盒", "count": 19, "ratio": 0.0432}, {"code": 9, "name": "taptap", "count": 29, "ratio": 0.0659}, {"code": 10, "name": "米游社", "count": 203, "ratio": 0.4614}, {"code": 11, "name": "NGA", "count": 6, "ratio": 0.0136}, {"code": 12, "name": "百度贴吧", "count": 12, "ratio": 0.0273}, {"code": 13, "name": "QQ频道", "count": 22, "ratio": 0.05}, {"code": 14, "name": "QQ空间", "count": 18, "ratio": 0.0409}, {"code": 15, "name": "微信、QQ群聊", "count": 178, "ratio": 0.4045}]}, "first_mindshare": {"denominator": 436, "items": [{"code": 1, "name": "抖音", "count": 68, "ratio": 0.156}, {"code": 2, "name": "B站", "count": 145, "ratio": 0.3326}, {"code": 3, "name": "小红书", "count": 27, "ratio": 0.0619}, {"code": 4, "name": "知乎", "count": 2, "ratio": 0.0046}, {"code": 5, "name": "lofter", "count": 2, "ratio": 0.0046}, {"code": 6, "name": "微博", "count": 10, "ratio": 0.0229}, {"code": 7, "name": "快手", "count": 22, "ratio": 0.0505}, {"code": 8, "name": "小黑盒", "count": 3, "ratio": 0.0069}, {"code": 9, "name": "taptap", "count": 2, "ratio": 0.0046}, {"code": 10, "name": "米游社", "count": 62, "ratio": 0.1422}, {"code": 11, "name": "NGA", "count": 1, "ratio": 0.0023}, {"code": 12, "name": "百度贴吧", "count": 2, "ratio": 0.0046}, {"code": 13, "name": "QQ频道", "count": 4, "ratio": 0.0092}, {"code": 14, "name": "QQ空间", "count": 3, "ratio": 0.0069}, {"code": 15, "name": "微信、QQ群聊", "count": 83, "ratio": 0.1904}]}}, {"scene": "周边", "penetration": {"denominator": 693, "items": [{"code": 1, "name": "抖音", "count": 208, "ratio": 0.3001}, {"code": 2, "name": "B站", "count": 348, "ratio": 0.5022}, {"code": 3, "name": "小红书", "count": 137, "ratio": 0.1977}, {"code": 4, "name": "知乎", "count": 4, "ratio": 0.0058}, {"code": 5, "name": "lofter", "count": 22, "ratio": 0.0317}, {"code": 6, "name": "微博", "count": 37, "ratio": 0.0534}, {"code": 7, "name": "快手", "count": 83, "ratio": 0.1198}, {"code": 8, "name": "小黑盒", "count": 26, "ratio": 0.0375}, {"code": 9, "name": "taptap", "count": 29, "ratio": 0.0418}, {"code": 10, "name": "米游社", "count": 363, "ratio": 0.5238}, {"code": 11, "name": "NGA", "count": 7, "ratio": 0.0101}, {"code": 12, "name": "百度贴吧", "count": 11, "ratio": 0.0159}, {"code": 13, "name": "QQ频道", "count": 28, "ratio": 0.0404}, {"code": 14, "name": "QQ空间", "count": 31, "ratio": 0.0447}, {"code": 15, "name": "微信、QQ群聊", "count": 237, "ratio": 0.342}]}, "first_mindshare": {"denominator": 684, "items": [{"code": 1, "name": "抖音", "count": 107, "ratio": 0.1564}, {"code": 2, "name": "B站", "count": 171, "ratio": 0.25}, {"code": 3, "name": "小红书", "count": 55, "ratio": 0.0804}, {"code": 4, "name": "知乎", "count": 0, "ratio": 0.0}, {"code": 5, "name": "lofter", "count": 3, "ratio": 0.0044}, {"code": 6, "name": "微博", "count": 2, "ratio": 0.0029}, {"code": 7, "name": "快手", "count": 32, "ratio": 0.0468}, {"code": 8, "name": "小黑盒", "count": 3, "ratio": 0.0044}, {"code": 9, "name": "taptap", "count": 2, "ratio": 0.0029}, {"code": 10, "name": "米游社", "count": 177, "ratio": 0.2588}, {"code": 11, "name": "NGA", "count": 3, "ratio": 0.0044}, {"code": 12, "name": "百度贴吧", "count": 2, "ratio": 0.0029}, {"code": 13, "name": "QQ频道", "count": 5, "ratio": 0.0073}, {"code": 14, "name": "QQ空间", "count": 5, "ratio": 0.0073}, {"code": 15, "name": "微信、QQ群聊", "count": 117, "ratio": 0.1711}]}}, {"scene": "Cosplay", "penetration": {"denominator": 616, "items": [{"code": 1, "name": "抖音", "count": 298, "ratio": 0.4838}, {"code": 2, "name": "B站", "count": 375, "ratio": 0.6088}, {"code": 3, "name": "小红书", "count": 103, "ratio": 0.1672}, {"code": 4, "name": "知乎", "count": 5, "ratio": 0.0081}, {"code": 5, "name": "lofter", "count": 23, "ratio": 0.0373}, {"code": 6, "name": "微博", "count": 27, "ratio": 0.0438}, {"code": 7, "name": "快手", "count": 126, "ratio": 0.2045}, {"code": 8, "name": "小黑盒", "count": 35, "ratio": 0.0568}, {"code": 9, "name": "taptap", "count": 23, "ratio": 0.0373}, {"code": 10, "name": "米游社", "count": 260, "ratio": 0.4221}, {"code": 11, "name": "NGA", "count": 8, "ratio": 0.013}, {"code": 12, "name": "百度贴吧", "count": 15, "ratio": 0.0244}, {"code": 13, "name": "QQ频道", "count": 36, "ratio": 0.0584}, {"code": 14, "name": "QQ空间", "count": 38, "ratio": 0.0617}, {"code": 15, "name": "微信、QQ群聊", "count": 157, "ratio": 0.2549}]}, "first_mindshare": {"denominator": 611, "items": [{"code": 1, "name": "抖音", "count": 166, "ratio": 0.2717}, {"code": 2, "name": "B站", "count": 192, "ratio": 0.3142}, {"code": 3, "name": "小红书", "count": 36, "ratio": 0.0589}, {"code": 4, "name": "知乎", "count": 0, "ratio": 0.0}, {"code": 5, "name": "lofter", "count": 2, "ratio": 0.0033}, {"code": 6, "name": "微博", "count": 1, "ratio": 0.0016}, {"code": 7, "name": "快手", "count": 56, "ratio": 0.0917}, {"code": 8, "name": "小黑盒", "count": 7, "ratio": 0.0115}, {"code": 9, "name": "taptap", "count": 2, "ratio": 0.0033}, {"code": 10, "name": "米游社", "count": 76, "ratio": 0.1244}, {"code": 11, "name": "NGA", "count": 1, "ratio": 0.0016}, {"code": 12, "name": "百度贴吧", "count": 3, "ratio": 0.0049}, {"code": 13, "name": "QQ频道", "count": 5, "ratio": 0.0082}, {"code": 14, "name": "QQ空间", "count": 5, "ratio": 0.0082}, {"code": 15, "name": "微信、QQ群聊", "count": 59, "ratio": 0.0966}]}}], "q27_usage_frequency": {"denominator": 2276, "items": [{"code": 1, "name": "几乎每天都会使用", "count": 654, "ratio": 0.2873}, {"code": 2, "name": "每周2-3次", "count": 483, "ratio": 0.2122}, {"code": 3, "name": "每周1次或更少", "count": 375, "ratio": 0.1648}, {"code": 4, "name": "只在新版本/重大活动时使用", "count": 538, "ratio": 0.2364}, {"code": 5, "name": "我不使用米游社", "count": 226, "ratio": 0.0993}]}, "q29_satisfaction": {"denominator": 2050, "items": [{"code": 1, "name": "非常满意", "count": 564, "ratio": 0.2751}, {"code": 2, "name": "比较满意", "count": 946, "ratio": 0.4615}, {"code": 3, "name": "一般般", "count": 461, "ratio": 0.2249}, {"code": 4, "name": "比较不满意", "count": 58, "ratio": 0.0283}, {"code": 5, "name": "非常不满意", "count": 21, "ratio": 0.0102}]}};
+const pct = v => (v * 100).toFixed(1) + '%';
+document.getElementById('meta').textContent =
+  '口径: 已排除 q2=11 终止问卷样本 | 分析样本: ' + data.sample_size + ' | 排除样本: ' + data.excluded_q2_11_count;
+
+function barChart(el, rows, title) {
+  const elNode = document.getElementById(el);
+  const sorted = [...rows].sort((a,b) => b.ratio - a.ratio);
+  if (window.echarts) {
+    const chart = echarts.init(elNode);
+    chart.setOption({
+      grid: { left: 80, right: 20, top: 30, bottom: 20 },
+      tooltip: {
+        trigger: 'item',
+        formatter: (p) => `${p.name}<br/>样本量: ${p.data.count}`
+      },
+      xAxis: {
+        type: 'value',
+        axisLabel: { formatter: v => v + '%' }
+      },
+      yAxis: {
+        type: 'category',
+        data: sorted.map(x => x.name)
+      },
+      series: [{
+        type: 'bar',
+        data: sorted.map(x => ({
+          value: +(x.ratio * 100).toFixed(2),
+          count: x.count
+        })),
+        label: { show: true, position: 'right', formatter: p => p.value + '%' },
+        itemStyle: { color: '#3f7cff' }
+      }]
+    });
+    return;
+  }
+
+  elNode.innerHTML = '<div class="fallback"></div>';
+  const wrap = elNode.firstElementChild;
+  for (const r of sorted) {
+    const row = document.createElement('div');
+    row.className = 'f-row';
+    row.innerHTML = `<div>${r.name}</div><div class="f-bar"><div class="f-fill" style="width:${(r.ratio*100).toFixed(1)}%"></div></div><div>${pct(r.ratio)}</div>`;
+    wrap.appendChild(row);
+  }
+}
+
+try {
+  barChart('genderChart', [...data.gender.items].sort((a,b) => b.ratio - a.ratio), '男女占比');
+  barChart('q3Chart', [...data.overall_channel_penetration.items].sort((a,b) => b.ratio - a.ratio), '整体渠道渗透');
+  barChart('q4Chart', [...data.overall_first_mindshare.items].sort((a,b) => b.ratio - a.ratio), '第一心智');
+  barChart('q2Chart', [...data.q2_content_mindshare.strict].sort((a,b) => b.ratio - a.ratio), '9类内容');
+
+  const sceneSelect = document.getElementById('sceneSelect');
+  data.scenes.forEach((scene, idx) => {
+    const opt = document.createElement('option');
+    opt.value = String(idx);
+    opt.textContent = scene.scene;
+    sceneSelect.appendChild(opt);
+  });
+
+  const tbody = document.querySelector('#sceneTable tbody');
+
+  function renderSceneTop1(index) {
+    const scene = data.scenes[index] || data.scenes[0];
+    const sorted = [...scene.first_mindshare.items].sort((a,b) => b.ratio - a.ratio);
+    barChart('sceneTop1Chart', sorted, scene.scene + ' 第一心智');
+    tbody.innerHTML = '';
+    sorted.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${idx + 1}</td><td>${row.name}</td><td>${pct(row.ratio)}</td><td>${scene.first_mindshare.denominator}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  sceneSelect.addEventListener('change', (e) => {
+    renderSceneTop1(Number(e.target.value || 0));
+  });
+  renderSceneTop1(0);
+} catch (e) {
+  document.getElementById('meta').textContent += ' | 页面渲染异常: ' + e.message;
+}
+</script>
+</body>
+</html>
