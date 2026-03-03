@@ -369,7 +369,8 @@ function drawBarChart(elId, rows, title) {
     return;
   }
 
-  const chart = echarts.init(node);
+  const chart = echarts.getInstanceByDom(node) || echarts.init(node);
+  chart.clear();
   chart.setOption({
     title: { text: title, textStyle: { fontSize: 13, fontWeight: 500 } },
     tooltip: {
@@ -394,6 +395,8 @@ function drawBarChart(elId, rows, title) {
       },
     ],
   });
+  // 防止在隐藏面板初始化时出现 0 宽高导致空白
+  requestAnimationFrame(() => chart.resize());
 }
 
 function renderOverview() {
@@ -588,7 +591,10 @@ function bindTabs() {
     btn.classList.add("active");
     document.getElementById(`panel-${tab}`).classList.add("active");
 
-    if (tab === "cross") renderCross();
+    if (tab === "cross") {
+      renderCross();
+      setTimeout(renderCross, 80);
+    }
   });
 }
 
@@ -612,7 +618,9 @@ function bindActions() {
 function renderAll() {
   renderUploadMeta();
   renderOverview();
-  renderCross();
+  if (document.getElementById("panel-cross").classList.contains("active")) {
+    renderCross();
+  }
 }
 
 async function bootstrap() {
