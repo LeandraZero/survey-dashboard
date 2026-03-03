@@ -620,7 +620,7 @@ function exportCrossTableCsv() {
     });
     return cells.join(",");
   });
-  downloadTextFile(`cross-analysis-${Date.now()}.csv`, lines.join("\\n"), "text/csv;charset=utf-8");
+  downloadTextFile(`cross-analysis-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
 }
 
 function renderCross() {
