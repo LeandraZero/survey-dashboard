@@ -28,6 +28,7 @@
       <nav class="tabs" id="tabs">
         <button class="tab active" data-tab="overview">数据总览</button>
         <button class="tab" data-tab="cross">交叉分析</button>
+        <button class="tab" data-tab="rules">规则配置</button>
         <button class="tab" data-tab="upload">数据录入</button>
       </nav>
       <div class="sidebar-foot" id="sidebarMeta"></div>
@@ -110,6 +111,56 @@
             </div>
           </article>
         </div>
+      </section>
+
+      <section class="panel" id="panel-rules">
+        <h2>规则配置</h2>
+        <p class="hint">自动识别表头后，可调整终止问卷条件与废样本条件。保存后会立即重算全站数据。</p>
+
+        <div class="chart-grid">
+          <article class="chart-card">
+            <h3>表头识别</h3>
+            <div class="rules-grid">
+              <label>
+                终止题字段
+                <select id="ruleTerminateField"></select>
+              </label>
+              <label>
+                终止值
+                <input id="ruleTerminateValue" type="text" placeholder="例如 1" />
+              </label>
+              <label>
+                作答时长字段
+                <select id="ruleDurationField"></select>
+              </label>
+            </div>
+            <p class="hint" id="ruleAutoHint"></p>
+          </article>
+
+          <article class="chart-card">
+            <h3>废样本条件</h3>
+            <div class="rules-stack">
+              <label class="rule-inline">
+                <input id="ruleEnableDuration" type="checkbox" />
+                启用最小时长过滤（秒）
+              </label>
+              <input id="ruleMinDuration" type="number" min="0" step="1" placeholder="例如 15" />
+
+              <label class="rule-inline">
+                <input id="ruleEnableRequired" type="checkbox" />
+                启用必填题检查（任一为空视为废样本）
+              </label>
+              <select id="ruleRequiredFields" multiple size="6"></select>
+              <span class="field-tip">可多选，按住 Cmd/Ctrl 选择多个题目</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="upload-actions">
+          <button id="btnSaveRules">保存并重算</button>
+          <button id="btnResetRules" class="ghost">恢复默认规则</button>
+        </div>
+        <div class="upload-log" id="ruleStats"></div>
       </section>
 
       <section class="panel" id="panel-upload">

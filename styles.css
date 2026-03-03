@@ -161,6 +161,24 @@ h1, h2, h3 { margin: 0 0 8px 0; }
   margin-bottom: 12px;
 }
 
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.rules-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rule-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 label {
   display: flex;
   flex-direction: column;

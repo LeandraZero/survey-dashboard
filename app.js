@@ -1,10 +1,20 @@
 const STORAGE_UPLOAD_AT_KEY = "survey_last_upload_at_v1";
+const RULES_KEY = "survey_rules_v1";
 const ACCESS_PASSWORD = "miyoushe2026";
 const ACCESS_SESSION_KEY = "survey_access_granted_v1";
 const DB_NAME = "survey_dashboard_db";
 const DB_VERSION = 1;
 const STORE_NAME = "kv";
 const RAW_ROWS_KEY = "survey_raw_rows_v1";
+const DEFAULT_RULES = {
+  terminateField: "",
+  terminateValue: "1",
+  durationField: "duration",
+  enableDuration: false,
+  minDuration: 15,
+  enableRequired: false,
+  requiredFields: [],
+};
 
 const CHANNELS = {
   1: "抖音",
@@ -137,6 +147,8 @@ let rawRows = [];
 let analysisRows = [];
 let lastUploadAt = "";
 let lastImportStats = null;
+let sampleStats = { total: 0, terminateExcluded: 0, invalidExcluded: 0, final: 0 };
+let currentRules = { ...DEFAULT_RULES };
 let appStarted = false;
 
 function unlockApp() {
@@ -290,10 +302,92 @@ function isDataRow(row) {
   return /^\d+$/.test(str(row.id));
 }
 
-function isContinueRespondent(row) {
-  const key = Object.keys(row).find((k) => k.startsWith("q2_11_"));
-  if (!key) return true;
-  return str(row[key]) !== "1";
+function getHeaders() {
+  if (!rawRows.length) return [];
+  return Object.keys(rawRows[0]);
+}
+
+function pickAutoField(headers, preferredPrefix, fallback = "") {
+  const found = headers.find((h) => h.startsWith(preferredPrefix));
+  return found || fallback;
+}
+
+function buildDefaultRules(headers = []) {
+  return {
+    ...DEFAULT_RULES,
+    terminateField: pickAutoField(headers, "q2_11_", ""),
+    durationField: headers.includes("duration") ? "duration" : "",
+  };
+}
+
+function loadRules(headers = []) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RULES_KEY) || "{}");
+    currentRules = { ...buildDefaultRules(headers), ...parsed };
+  } catch {
+    currentRules = buildDefaultRules(headers);
+  }
+  if (!Array.isArray(currentRules.requiredFields)) currentRules.requiredFields = [];
+}
+
+function saveRules() {
+  localStorage.setItem(RULES_KEY, JSON.stringify(currentRules));
+}
+
+function applySampleRules(rows) {
+  const out = [];
+  let terminateExcluded = 0;
+  let invalidExcluded = 0;
+
+  for (const r of rows) {
+    if (
+      currentRules.terminateField &&
+      str(r[currentRules.terminateField]) !== "" &&
+      str(r[currentRules.terminateField]) === str(currentRules.terminateValue)
+    ) {
+      terminateExcluded += 1;
+      continue;
+    }
+
+    let invalid = false;
+    if (currentRules.enableDuration && currentRules.durationField) {
+      const duration = toInt(r[currentRules.durationField]);
+      if (duration !== null && duration < Number(currentRules.minDuration || 0)) {
+        invalid = true;
+      }
+    }
+
+    if (!invalid && currentRules.enableRequired && currentRules.requiredFields.length) {
+      if (currentRules.requiredFields.some((f) => str(r[f]) === "")) {
+        invalid = true;
+      }
+    }
+
+    if (invalid) {
+      invalidExcluded += 1;
+      continue;
+    }
+    out.push(r);
+  }
+
+  return {
+    rows: out,
+    total: rows.length,
+    terminateExcluded,
+    invalidExcluded,
+    final: out.length,
+  };
+}
+
+function recomputeAnalysisRows() {
+  const result = applySampleRules(rawRows);
+  analysisRows = result.rows;
+  sampleStats = {
+    total: result.total,
+    terminateExcluded: result.terminateExcluded,
+    invalidExcluded: result.invalidExcluded,
+    final: result.final,
+  };
 }
 
 function dedupRows(rows) {
@@ -585,9 +679,94 @@ function renderUploadMeta() {
     `导入文件数：${lastImportStats.files}`,
     `读取总行数：${lastImportStats.readRows}`,
     `去重后总样本：${lastImportStats.dedupRows}`,
-    `剔除终止样本（q2=11）：${lastImportStats.excludedRows}`,
+    `终止样本：${lastImportStats.terminateExcluded}`,
+    `废样本：${lastImportStats.invalidExcluded}`,
     `最终分析样本：${lastImportStats.analysisRows}`,
   ].join("<br/>");
+}
+
+function setSelectOptionsWithRaw(selectId, values) {
+  const node = document.getElementById(selectId);
+  if (!node) return;
+  node.innerHTML = "";
+  values.forEach((v) => {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = v;
+    node.appendChild(o);
+  });
+}
+
+function renderRulesPanel() {
+  const headers = getHeaders();
+  const qHeaders = headers.filter((h) => /^q\d+/.test(h));
+
+  setSelectOptionsWithRaw("ruleTerminateField", ["", ...headers]);
+  setSelectOptionsWithRaw("ruleDurationField", ["", ...headers]);
+  setSelectOptionsWithRaw("ruleRequiredFields", qHeaders);
+
+  const terminateField = document.getElementById("ruleTerminateField");
+  const terminateValue = document.getElementById("ruleTerminateValue");
+  const durationField = document.getElementById("ruleDurationField");
+  const enableDuration = document.getElementById("ruleEnableDuration");
+  const minDuration = document.getElementById("ruleMinDuration");
+  const enableRequired = document.getElementById("ruleEnableRequired");
+  const requiredFields = document.getElementById("ruleRequiredFields");
+  const autoHint = document.getElementById("ruleAutoHint");
+  const ruleStats = document.getElementById("ruleStats");
+
+  if (!terminateField || !terminateValue || !durationField || !enableDuration || !minDuration || !enableRequired || !requiredFields || !autoHint || !ruleStats) return;
+
+  terminateField.value = currentRules.terminateField || "";
+  terminateValue.value = currentRules.terminateValue || "1";
+  durationField.value = currentRules.durationField || "";
+  enableDuration.checked = !!currentRules.enableDuration;
+  minDuration.value = String(currentRules.minDuration ?? 15);
+  enableRequired.checked = !!currentRules.enableRequired;
+  [...requiredFields.options].forEach((o) => {
+    o.selected = currentRules.requiredFields.includes(o.value);
+  });
+
+  autoHint.textContent = `已识别表头 ${headers.length} 个；自动建议终止题字段：${buildDefaultRules(headers).terminateField || "未识别"}`;
+  ruleStats.innerHTML = [
+    `规则试跑结果：`,
+    `总样本：${sampleStats.total}`,
+    `终止样本：${sampleStats.terminateExcluded}`,
+    `废样本：${sampleStats.invalidExcluded}`,
+    `最终分析样本：${sampleStats.final}`,
+  ].join("<br/>");
+}
+
+function saveRulesFromPanel() {
+  const terminateField = document.getElementById("ruleTerminateField");
+  const terminateValue = document.getElementById("ruleTerminateValue");
+  const durationField = document.getElementById("ruleDurationField");
+  const enableDuration = document.getElementById("ruleEnableDuration");
+  const minDuration = document.getElementById("ruleMinDuration");
+  const enableRequired = document.getElementById("ruleEnableRequired");
+  const requiredFields = document.getElementById("ruleRequiredFields");
+  if (!terminateField || !terminateValue || !durationField || !enableDuration || !minDuration || !enableRequired || !requiredFields) return;
+
+  currentRules = {
+    terminateField: terminateField.value,
+    terminateValue: terminateValue.value || "1",
+    durationField: durationField.value,
+    enableDuration: enableDuration.checked,
+    minDuration: Number(minDuration.value || 0),
+    enableRequired: enableRequired.checked,
+    requiredFields: [...requiredFields.selectedOptions].map((o) => o.value),
+  };
+  saveRules();
+  recomputeAnalysisRows();
+  renderAll();
+  alert("规则已保存并重算完成");
+}
+
+function resetRulesToDefault() {
+  currentRules = buildDefaultRules(getHeaders());
+  saveRules();
+  recomputeAnalysisRows();
+  renderAll();
 }
 
 async function saveLocal() {
@@ -645,14 +824,15 @@ async function importFiles() {
   setImportProgress(80, "去重与样本筛选中...");
 
   rawRows = dedupRows(merged);
-  analysisRows = rawRows.filter(isContinueRespondent);
+  recomputeAnalysisRows();
   lastUploadAt = Date.now();
   await saveLocal();
   lastImportStats = {
     files: files.length,
     readRows,
     dedupRows: rawRows.length,
-    excludedRows: rawRows.length - analysisRows.length,
+    terminateExcluded: sampleStats.terminateExcluded,
+    invalidExcluded: sampleStats.invalidExcluded,
     analysisRows: analysisRows.length,
   };
   setImportProgress(100, "导入完成");
@@ -663,6 +843,7 @@ async function clearLocalData() {
   if (!confirm("确认清空本地导入数据吗？")) return;
   rawRows = [];
   analysisRows = [];
+  sampleStats = { total: 0, terminateExcluded: 0, invalidExcluded: 0, final: 0 };
   lastUploadAt = "";
   lastImportStats = null;
   try {
@@ -688,6 +869,7 @@ function bindTabs() {
       renderCross();
       setTimeout(renderCross, 80);
     }
+    if (tab === "rules") renderRulesPanel();
   });
 }
 
@@ -707,11 +889,14 @@ function bindActions() {
     document.getElementById(id).addEventListener("change", renderCross);
   });
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
+  document.getElementById("btnSaveRules").addEventListener("click", saveRulesFromPanel);
+  document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
 }
 
 function renderAll() {
   renderUploadMeta();
   renderOverview();
+  renderRulesPanel();
   if (document.getElementById("panel-cross").classList.contains("active")) {
     renderCross();
   }
@@ -720,7 +905,8 @@ function renderAll() {
 async function bootstrap() {
   await loadLocal();
   rawRows = dedupRows(rawRows);
-  analysisRows = rawRows.filter(isContinueRespondent);
+  loadRules(getHeaders());
+  recomputeAnalysisRows();
 
   setSelectOptions("analysisQuestion", ANALYSIS_QUESTIONS.map((x) => ({ id: x.id, name: x.name })));
   setSelectOptions("analysisAttr", ATTR_QUESTIONS.map((x) => ({ id: x.id, name: x.name })));
