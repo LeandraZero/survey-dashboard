@@ -1,5 +1,8 @@
-const STORAGE_KEY = "survey_raw_rows_v1";
 const STORAGE_UPLOAD_AT_KEY = "survey_last_upload_at_v1";
+const DB_NAME = "survey_dashboard_db";
+const DB_VERSION = 1;
+const STORE_NAME = "kv";
+const RAW_ROWS_KEY = "survey_raw_rows_v1";
 
 const CHANNELS = {
   1: "抖音",
@@ -131,6 +134,57 @@ const FILTER_OPTIONS = [
 let rawRows = [];
 let analysisRows = [];
 let lastUploadAt = "";
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error("当前浏览器不支持 IndexedDB"));
+      return;
+    }
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "k" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("打开 IndexedDB 失败"));
+  });
+}
+
+async function idbGet(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result ? req.result.v : null);
+    req.onerror = () => reject(req.error || new Error("读取 IndexedDB 失败"));
+  });
+}
+
+async function idbSet(key, value) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put({ k: key, v: value });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error || new Error("写入 IndexedDB 失败"));
+  });
+}
+
+async function idbDel(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error || new Error("删除 IndexedDB 失败"));
+  });
+}
 
 function str(v) {
   return (v ?? "").toString().trim();
@@ -415,18 +469,22 @@ function renderUploadMeta() {
   document.getElementById("uploadLog").textContent = msg;
 }
 
-function saveLocal() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rawRows));
+async function saveLocal() {
+  await idbSet(RAW_ROWS_KEY, rawRows);
   localStorage.setItem(STORAGE_UPLOAD_AT_KEY, String(lastUploadAt || ""));
 }
 
-function loadLocal() {
+async function loadLocal() {
   try {
-    rawRows = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    if (!Array.isArray(rawRows)) rawRows = [];
+    const rows = await idbGet(RAW_ROWS_KEY);
+    rawRows = Array.isArray(rows) ? rows : [];
   } catch {
+    // Fallback: IndexedDB 不可用时，降级为仅内存模式，避免 localStorage 超配额
     rawRows = [];
   }
+  try {
+    if (!Array.isArray(rawRows)) rawRows = [];
+  } catch {}
   lastUploadAt = localStorage.getItem(STORAGE_UPLOAD_AT_KEY) || "";
 }
 
@@ -462,16 +520,19 @@ async function importFiles() {
   rawRows = dedupRows(merged);
   analysisRows = rawRows.filter(isContinueRespondent);
   lastUploadAt = Date.now();
-  saveLocal();
+  await saveLocal();
   renderAll();
 }
 
-function clearLocalData() {
+async function clearLocalData() {
   if (!confirm("确认清空本地导入数据吗？")) return;
   rawRows = [];
   analysisRows = [];
   lastUploadAt = "";
-  saveLocal();
+  try {
+    await idbDel(RAW_ROWS_KEY);
+  } catch {}
+  localStorage.removeItem(STORAGE_UPLOAD_AT_KEY);
   renderAll();
 }
 
@@ -496,7 +557,11 @@ function bindActions() {
       alert(`导入失败: ${err.message}`);
     });
   });
-  document.getElementById("btnClear").addEventListener("click", clearLocalData);
+  document.getElementById("btnClear").addEventListener("click", () => {
+    clearLocalData().catch((err) => {
+      alert(`清空失败: ${err.message}`);
+    });
+  });
 
   ["analysisQuestion", "analysisAttr", "analysisFilter"].forEach((id) => {
     document.getElementById(id).addEventListener("change", renderCross);
@@ -509,8 +574,8 @@ function renderAll() {
   renderCross();
 }
 
-function bootstrap() {
-  loadLocal();
+async function bootstrap() {
+  await loadLocal();
   rawRows = dedupRows(rawRows);
   analysisRows = rawRows.filter(isContinueRespondent);
 
@@ -523,4 +588,6 @@ function bootstrap() {
   renderAll();
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  alert(`初始化失败: ${err.message}`);
+});
