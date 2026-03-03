@@ -435,16 +435,57 @@ function setSelectOptions(selectId, options) {
   });
 }
 
+function getSelectedFilterDefs() {
+  const node = document.getElementById("analysisFilter");
+  const selected = [...node.selectedOptions].map((x) => x.value);
+  if (!selected.length || selected.includes("all")) {
+    return [FILTER_OPTIONS[0]];
+  }
+  return selected
+    .map((id) => FILTER_OPTIONS.find((x) => x.id === id))
+    .filter(Boolean);
+}
+
+function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportCrossTableCsv() {
+  const table = document.getElementById("crossTable");
+  if (!table) return;
+  const rows = [...table.querySelectorAll("tr")];
+  if (!rows.length) {
+    alert("当前没有可导出的交叉结果");
+    return;
+  }
+
+  const lines = rows.map((tr) => {
+    const cells = [...tr.querySelectorAll("th,td")].map((cell) => {
+      const val = (cell.textContent || "").replace(/\\r?\\n/g, " ").trim();
+      return `"${val.replace(/"/g, '""')}"`;
+    });
+    return cells.join(",");
+  });
+  downloadTextFile(`cross-analysis-${Date.now()}.csv`, lines.join("\\n"), "text/csv;charset=utf-8");
+}
+
 function renderCross() {
   const qId = document.getElementById("analysisQuestion").value;
   const attrId = document.getElementById("analysisAttr").value;
-  const filterId = document.getElementById("analysisFilter").value;
 
   const qDef = ANALYSIS_QUESTIONS.find((x) => x.id === qId) || ANALYSIS_QUESTIONS[0];
   const attrDef = ATTR_QUESTIONS.find((x) => x.id === attrId) || ATTR_QUESTIONS[0];
-  const filterDef = FILTER_OPTIONS.find((x) => x.id === filterId) || FILTER_OPTIONS[0];
+  const filterDefs = getSelectedFilterDefs();
 
-  const filtered = analysisRows.filter((r) => filterDef.fn(r));
+  const filtered = analysisRows.filter((r) => filterDefs.every((f) => f.fn(r)));
   const overall = getQuestionDistribution(filtered, qDef);
   drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${filtered.length}）`);
 
@@ -613,6 +654,7 @@ function bindActions() {
   ["analysisQuestion", "analysisAttr", "analysisFilter"].forEach((id) => {
     document.getElementById(id).addEventListener("change", renderCross);
   });
+  document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
 }
 
 function renderAll() {
@@ -631,6 +673,10 @@ async function bootstrap() {
   setSelectOptions("analysisQuestion", ANALYSIS_QUESTIONS.map((x) => ({ id: x.id, name: x.name })));
   setSelectOptions("analysisAttr", ATTR_QUESTIONS.map((x) => ({ id: x.id, name: x.name })));
   setSelectOptions("analysisFilter", FILTER_OPTIONS.map((x) => ({ id: x.id, name: x.name })));
+  const filterNode = document.getElementById("analysisFilter");
+  if (filterNode && filterNode.options.length) {
+    filterNode.options[0].selected = true;
+  }
 
   bindTabs();
   bindActions();

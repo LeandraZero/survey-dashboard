@@ -147,6 +147,19 @@ input[type="file"] {
   padding: 9px;
 }
 
+.field-tip {
+  font-size: 11px;
+  color: #7a8798;
+}
+
+.table-actions {
+  margin: 8px 0 10px;
+}
+
+#analysisFilter {
+  min-height: 130px;
+}
+
 .upload-actions {
   margin-top: 10px;
   display: flex;
