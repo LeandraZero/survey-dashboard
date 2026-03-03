@@ -17,6 +17,42 @@ body {
   font-family: "Noto Sans SC", sans-serif;
 }
 
+.hidden-before-unlock {
+  display: none;
+}
+
+.access-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.gate-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gate-card input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.gate-error {
+  min-height: 18px;
+  color: #b42318;
+  font-size: 12px;
+  margin: 0;
+}
+
 .app-shell {
   min-height: 100vh;
   display: grid;

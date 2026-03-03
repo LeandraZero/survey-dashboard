@@ -1,4 +1,6 @@
 const STORAGE_UPLOAD_AT_KEY = "survey_last_upload_at_v1";
+const ACCESS_PASSWORD = "miyoushe2026";
+const ACCESS_SESSION_KEY = "survey_access_granted_v1";
 const DB_NAME = "survey_dashboard_db";
 const DB_VERSION = 1;
 const STORE_NAME = "kv";
@@ -135,6 +137,55 @@ let rawRows = [];
 let analysisRows = [];
 let lastUploadAt = "";
 let lastImportStats = null;
+let appStarted = false;
+
+function unlockApp() {
+  const gate = document.getElementById("accessGate");
+  const shell = document.getElementById("appShell");
+  if (gate) gate.style.display = "none";
+  if (shell) shell.classList.remove("hidden-before-unlock");
+  sessionStorage.setItem(ACCESS_SESSION_KEY, "1");
+}
+
+function startApp() {
+  if (appStarted) return;
+  appStarted = true;
+  bootstrap().catch((err) => {
+    alert(`初始化失败: ${err.message}`);
+  });
+}
+
+function initAccessGate() {
+  const gate = document.getElementById("accessGate");
+  const input = document.getElementById("accessPassword");
+  const btn = document.getElementById("btnUnlock");
+  const err = document.getElementById("gateError");
+  if (!gate || !input || !btn || !err) {
+    startApp();
+    return;
+  }
+
+  if (sessionStorage.getItem(ACCESS_SESSION_KEY) === "1") {
+    unlockApp();
+    startApp();
+    return;
+  }
+
+  const tryUnlock = () => {
+    if (input.value === ACCESS_PASSWORD) {
+      err.textContent = "";
+      unlockApp();
+      startApp();
+      return;
+    }
+    err.textContent = "密码错误，请重试。";
+  };
+
+  btn.addEventListener("click", tryUnlock);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryUnlock();
+  });
+}
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -685,6 +736,4 @@ async function bootstrap() {
   renderAll();
 }
 
-bootstrap().catch((err) => {
-  alert(`初始化失败: ${err.message}`);
-});
+initAccessGate();

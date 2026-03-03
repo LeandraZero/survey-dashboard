@@ -12,7 +12,17 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <div class="app-shell">
+  <div class="access-gate" id="accessGate">
+    <div class="gate-card">
+      <h2>访问验证</h2>
+      <p class="hint">请输入访问密码后查看问卷看板</p>
+      <input id="accessPassword" type="password" placeholder="请输入密码" />
+      <button id="btnUnlock">进入看板</button>
+      <p class="gate-error" id="gateError"></p>
+    </div>
+  </div>
+
+  <div class="app-shell hidden-before-unlock" id="appShell">
     <aside class="sidebar">
       <div class="brand">问卷数据看板</div>
       <nav class="tabs" id="tabs">
