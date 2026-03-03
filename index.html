@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>问卷数据看板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">问卷数据看板</div>
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview">数据总览</button>
+        <button class="tab" data-tab="cross">交叉分析</button>
+        <button class="tab" data-tab="upload">数据录入</button>
+      </nav>
+      <div class="sidebar-foot" id="sidebarMeta"></div>
+    </aside>
+
+    <main class="content">
+      <section class="panel active" id="panel-overview">
+        <h1>游戏讨论心智</h1>
+        <p class="hint" id="overviewHint">数据更新至 --</p>
+
+        <div class="kpi-grid">
+          <article class="kpi-card">
+            <h3>总样本</h3>
+            <p class="kpi" id="kpiSample">0</p>
+          </article>
+          <article class="kpi-card">
+            <h3>游戏讨论心智首选Top1</h3>
+            <p class="kpi" id="kpiTop1">--</p>
+            <p class="sub-kpi" id="kpiTop1Ratio">--</p>
+          </article>
+          <article class="kpi-card">
+            <h3>米游社首选心智TopX</h3>
+            <p class="kpi" id="kpiMysRank">--</p>
+            <p class="sub-kpi" id="kpiMysRatio">--</p>
+          </article>
+          <article class="kpi-card">
+            <h3>米游社满意度</h3>
+            <p class="kpi" id="kpiSat">--</p>
+            <p class="sub-kpi" id="kpiSatDetail">--</p>
+          </article>
+        </div>
+
+        <div class="chart-grid">
+          <article class="chart-card">
+            <h3>游戏讨论心智首选Top1分布</h3>
+            <div id="chartTop1" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <h3>米游社满意度分布</h3>
+            <div id="chartSat" class="chart"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-cross">
+        <h2>交叉分析</h2>
+        <p class="hint">通过三个筛选框进行维度拆解，支持“题目分布 + 用户属性分组 + 题目答案过滤”。</p>
+
+        <div class="filters">
+          <label>
+            筛选题目
+            <select id="analysisQuestion"></select>
+          </label>
+          <label>
+            筛选用户属性
+            <select id="analysisAttr"></select>
+          </label>
+          <label>
+            筛选某道题答案
+            <select id="analysisFilter"></select>
+          </label>
+        </div>
+
+        <div class="chart-grid">
+          <article class="chart-card">
+            <h3>题目答案分布</h3>
+            <div id="chartAnalysis" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <h3>交叉结果（按属性分组）</h3>
+            <div class="table-wrap">
+              <table id="crossTable">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-upload">
+        <h2>用户问卷数据录入</h2>
+        <p class="hint">上传 Excel/CSV 后将自动读取并覆盖更新本地看板数据（口径：继续作答样本）。</p>
+
+        <div class="upload-box">
+          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple />
+          <div class="upload-actions">
+            <button id="btnImport">导入文件</button>
+            <button id="btnClear" class="ghost">清空本地数据</button>
+          </div>
+        </div>
+
+        <div class="upload-log" id="uploadLog"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
