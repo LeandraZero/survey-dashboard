@@ -74,7 +74,7 @@ body {
 }
 
 .sidebar {
-  background: linear-gradient(165deg, #182744, #1f3b63);
+  background: linear-gradient(165deg, #0e2d67, #092e73);
   color: #f2f8ff;
   padding: 20px 14px;
   display: flex;
@@ -113,7 +113,7 @@ body {
 .tab {
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: transparent;
-  color: #d8e8fb;
+  color: #1e4083;
   border-radius: var(--radius-md);
   padding: 10px 12px;
   text-align: left;
@@ -123,12 +123,12 @@ body {
 
 .tab:hover {
   background: rgba(255, 255, 255, 0.09);
-  color: #f6fbff;
+  color: #1e4083;
 }
 
 .tab.active {
   background: #edf2ff;
-  color: #223a68;
+  color: #0d224b;
   border-color: #edf2ff;
   font-weight: 700;
   box-shadow: none;
