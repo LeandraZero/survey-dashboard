@@ -830,10 +830,17 @@ function renderOverviewSceneGrid() {
     .join("");
 
   const renderTooltip = (scene, x, y) => {
-    const rows = scene.channels
-      .map((c) => `<tr><td>${c.name}</td><td>${fmtPct(c.ratio)}</td></tr>`)
+    const bars = scene.channels
+      .map(
+        (c) => `
+        <div class="scene-tip-row">
+          <div class="scene-tip-name">${c.name}</div>
+          <div class="scene-tip-track"><div class="scene-tip-fill" style="width:${(c.ratio * 100).toFixed(1)}%"></div></div>
+          <div class="scene-tip-pct">${fmtPct(c.ratio)}</div>
+        </div>`,
+      )
       .join("");
-    tooltip.innerHTML = `<div style="font-size:12px;font-weight:700;margin-bottom:6px;">${scene.name} 渠道占比</div><table><thead><tr><th>渠道</th><th>占比</th></tr></thead><tbody>${rows}</tbody></table>`;
+    tooltip.innerHTML = `<div class="scene-tip-title">${scene.name} 渠道占比</div><div class="scene-tip-bars">${bars}</div>`;
     tooltip.style.display = "block";
     tooltip.style.left = `${x + 14}px`;
     tooltip.style.top = `${y + 14}px`;
