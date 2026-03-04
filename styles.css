@@ -152,6 +152,15 @@ h1, h2, h3 { margin: 0 0 8px 0; }
   gap: 12px;
 }
 
+.cross-grid {
+  grid-template-columns: 4fr 6fr;
+}
+
+.cross-left,
+.cross-right {
+  min-width: 0;
+}
+
 .chart { height: 340px; }
 
 .filters {
@@ -309,5 +318,9 @@ th {
 
   .tab {
     min-width: 120px;
+  }
+
+  .cross-grid {
+    grid-template-columns: 1fr;
   }
 }
