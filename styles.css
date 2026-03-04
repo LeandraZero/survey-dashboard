@@ -181,7 +181,7 @@ h3 { font-size: 16px; }
 
 .overview-meta-line {
   margin: 0;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .overview-layout {
@@ -199,7 +199,13 @@ h3 { font-size: 16px; }
 .overview-right {
   position: relative;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-height: 520px;
+}
+
+.overview-section-title {
+  margin: 0;
 }
 
 .overview-metric {
@@ -214,7 +220,7 @@ h3 { font-size: 16px; }
 .scene-grid {
   flex: 1 1 auto;
   width: 100%;
-  height: 100%;
+  height: calc(100% - 30px);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(0, 1fr));

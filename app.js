@@ -750,12 +750,12 @@ function renderOverview() {
   const sortedTop1 = [...top1.items].sort((a, b) => b.ratio - a.ratio);
   const best = sortedTop1[0];
   document.getElementById("ovOverallTop1").textContent = best ? best.name : "--";
-  document.getElementById("ovOverallTop1Ratio").textContent = best ? `${fmtPct(best.ratio)}（${best.count}）` : "--";
+  document.getElementById("ovOverallTop1Ratio").textContent = best ? fmtPct(best.ratio) : "--";
 
   const mys = sortedTop1.find((x) => x.name === "米游社");
   const rank = sortedTop1.findIndex((x) => x.name === "米游社");
   document.getElementById("ovOverallMysLabel").textContent = rank >= 0 ? `Top${rank + 1}：米游社` : "TopX：米游社";
-  document.getElementById("ovOverallMysRatio").textContent = mys ? `${fmtPct(mys.ratio)}（${mys.count}）` : "--";
+  document.getElementById("ovOverallMysRatio").textContent = mys ? fmtPct(mys.ratio) : "--";
 
   drawBarChart("chartTop1", top1.items, "Top1 渠道占比");
   renderOverviewSceneGrid();
@@ -787,8 +787,8 @@ function renderOverviewSceneGrid() {
       (s, i) => `
       <article class="scene-card" data-scene-index="${i}">
         <div class="scene-title">${s.name}</div>
-        <div class="scene-line">Top1：<strong>${s.best ? s.best.name : "--"}</strong> ${s.best ? `${fmtPct(s.best.ratio)}（${s.best.count}）` : "--"}</div>
-        <div class="scene-line">${s.mysRank >= 0 ? `Top${s.mysRank + 1}` : "TopX"}：米游社 ${s.mys ? `${fmtPct(s.mys.ratio)}（${s.mys.count}）` : "--"}</div>
+        <div class="scene-line">Top1：<strong>${s.best ? s.best.name : "--"}</strong> ${s.best ? fmtPct(s.best.ratio) : "--"}</div>
+        <div class="scene-line">${s.mysRank >= 0 ? `Top${s.mysRank + 1}` : "TopX"}：米游社 ${s.mys ? fmtPct(s.mys.ratio) : "--"}</div>
       </article>`,
     )
     .join("");
