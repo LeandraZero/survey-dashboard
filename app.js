@@ -276,7 +276,11 @@ function isDataRow(row) {
 
 function getHeaders() {
   if (!rawRows.length) return [];
-  return Object.keys(rawRows[0]);
+  const keys = new Set();
+  for (const r of rawRows) {
+    for (const k of Object.keys(r || {})) keys.add(k);
+  }
+  return [...keys];
 }
 
 function pickAutoField(headers, preferredPrefix, fallback = "") {
@@ -533,6 +537,15 @@ function recomputeAnalysisRows() {
     invalidExcluded: result.invalidExcluded,
     final: result.final,
   };
+  if (lastImportStats) {
+    lastImportStats = {
+      ...lastImportStats,
+      dedupRows: rawRows.length,
+      terminateExcluded: sampleStats.terminateExcluded,
+      invalidExcluded: sampleStats.invalidExcluded,
+      analysisRows: analysisRows.length,
+    };
+  }
 }
 
 function dedupRows(rows) {
