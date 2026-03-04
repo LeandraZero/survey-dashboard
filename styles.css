@@ -223,16 +223,20 @@ h3 { font-size: 16px; }
 }
 
 .top-rank-head {
-  min-width: 180px;
+  min-width: 0;
   display: inline-flex;
   justify-content: flex-start;
   align-items: center;
   text-align: left;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .top-rank-value {
-  min-width: 56px;
+  min-width: 52px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .top-rank-label {
@@ -376,11 +380,19 @@ h3 { font-size: 16px; }
 }
 
 .top-rank-line {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   font-weight: 400;
+  min-width: 0;
+}
+
+.top-rank-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .top-rank-line.rank-1,
