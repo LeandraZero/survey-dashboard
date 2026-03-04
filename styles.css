@@ -363,6 +363,10 @@ h3 { font-size: 16px; }
 }
 
 .top-rank-line {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   font-weight: 400;
 }
 
@@ -371,6 +375,10 @@ h3 { font-size: 16px; }
 .top-rank-line.rank-1 .top-rank-name,
 .top-rank-line.rank-1 .top-rank-value {
   font-weight: 700;
+}
+
+#ovOverallMysExtra {
+  text-align: right;
 }
 
 .barlist {

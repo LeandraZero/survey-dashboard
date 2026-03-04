@@ -771,7 +771,7 @@ function renderOverview() {
   if (mysExtraNode) {
     if (rank > 2 && mys) {
       mysExtraNode.style.display = "";
-      mysExtraNode.innerHTML = `<span class="top-rank-label">Top${rank + 1}：</span><span class="mys-text">米游社</span><span class="top1-value top-rank-value">${fmtPct(mys.ratio)}</span>`;
+      mysExtraNode.innerHTML = `<span class="scene-line top-rank-line rank-extra"><span class="top-rank-label">Top${rank + 1}：</span><span class="mys-text">米游社</span><span class="top1-value top-rank-value">${fmtPct(mys.ratio)}</span></span>`;
     } else {
       mysExtraNode.style.display = "none";
       mysExtraNode.textContent = "";
@@ -808,7 +808,7 @@ function renderOverviewSceneGrid() {
       <article class="scene-card" data-scene-index="${i}">
         <div class="scene-title">${s.name}</div>
         ${topRankLinesHtml(s.top3, 3)}
-        ${s.mys && s.mysRank > 2 ? `<div class="scene-line"><span class="top-rank-label">Top${s.mysRank + 1}：</span><span class="mys-text">米游社</span><span class="top1-value top-rank-value">${fmtPct(s.mys.ratio)}</span></div>` : ""}
+        ${s.mys && s.mysRank > 2 ? `<div class="scene-line top-rank-line rank-extra"><span class="top-rank-label">Top${s.mysRank + 1}：</span><span class="mys-text">米游社</span><span class="top1-value top-rank-value">${fmtPct(s.mys.ratio)}</span></div>` : ""}
       </article>`,
     )
     .join("");
