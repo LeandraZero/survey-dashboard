@@ -40,38 +40,24 @@
       <section class="panel active" id="panel-overview">
         <h1>游戏(原神)讨论心智</h1>
         <p class="hint" id="overviewHint">数据更新至 --</p>
+        <p class="hint overview-sample-line" id="overviewSampleLine">总样本：0</p>
 
-        <div class="kpi-grid">
-          <article class="kpi-card">
-            <h3>总样本</h3>
-            <p class="kpi" id="kpiSample">0</p>
-          </article>
-          <article class="kpi-card">
-            <h3>游戏(原神)讨论心智首选Top1</h3>
-            <p class="kpi" id="kpiTop1">--</p>
-            <p class="sub-kpi" id="kpiTop1Ratio">--</p>
-          </article>
-          <article class="kpi-card">
-            <h3>米游社首选心智TopX</h3>
-            <p class="kpi" id="kpiMysRank">--</p>
-            <p class="sub-kpi" id="kpiMysRatio">--</p>
-          </article>
-          <article class="kpi-card">
-            <h3>米游社满意度</h3>
-            <p class="kpi" id="kpiSat">--</p>
-            <p class="sub-kpi" id="kpiSatDetail">--</p>
-          </article>
-        </div>
-
-        <div class="chart-grid">
-          <article class="chart-card">
-            <h3>游戏(原神)讨论心智首选Top1分布</h3>
-            <div id="chartTop1" class="chart"></div>
-          </article>
-          <article class="chart-card">
-            <h3>米游社满意度分布</h3>
-            <div id="chartSat" class="chart"></div>
-          </article>
+        <div class="overview-layout">
+          <div class="overview-left">
+            <article class="chart-card">
+              <h3>整体讨论心智</h3>
+              <p class="overview-metric">Top1：<strong id="ovOverallTop1">--</strong> <span id="ovOverallTop1Ratio">--</span></p>
+              <p class="overview-metric">TopX：米游社 <strong id="ovOverallMysTopX">--</strong> <span id="ovOverallMysRatio">--</span></p>
+            </article>
+            <article class="chart-card">
+              <h3>首选Top1所有渠道占比</h3>
+              <div id="chartTop1" class="chart"></div>
+            </article>
+          </div>
+          <div class="overview-right">
+            <div class="scene-grid" id="sceneGrid"></div>
+            <div class="scene-tooltip" id="sceneTooltip"></div>
+          </div>
         </div>
       </section>
 

@@ -51,6 +51,18 @@ const Q2_CATEGORIES = {
   9: "Cosplay",
 };
 
+const OVERVIEW_SCENES = [
+  { name: "抽卡规划/原石获取", multi: "q7", rank: "q8" },
+  { name: "角色养成/操作手法", multi: "q10", rank: "q11" },
+  { name: "探索解谜", multi: "q13", rank: "q14" },
+  { name: "剧情解析", multi: "q15", rank: "q16" },
+  { name: "剧情讨论", multi: "q17", rank: "q18" },
+  { name: "同人", multi: "q19", rank: "q20" },
+  { name: "游戏外活动", multi: "q21", rank: "q22" },
+  { name: "周边", multi: "q23", rank: "q24" },
+  { name: "Cosplay", multi: "q25", rank: "q26" },
+];
+
 const Q1_LABELS = {
   1: "几乎每天（6-7天）",
   2: "经常（4-5天）",
@@ -737,27 +749,78 @@ function bindChartWindowResize() {
 
 function renderOverview() {
   document.getElementById("overviewHint").textContent = `数据更新至 ${fmtTime(lastUploadAt)}`;
-  document.getElementById("kpiSample").textContent = String(analysisRows.length);
+  document.getElementById("overviewSampleLine").textContent = `总样本：${analysisRows.length}`;
 
   const top1 = calcRankTop1(analysisRows, "q4", CHANNELS);
   const sortedTop1 = [...top1.items].sort((a, b) => b.ratio - a.ratio);
   const best = sortedTop1[0];
-  document.getElementById("kpiTop1").textContent = best ? best.name : "--";
-  document.getElementById("kpiTop1Ratio").textContent = best ? `${fmtPct(best.ratio)}（${best.count}）` : "--";
+  document.getElementById("ovOverallTop1").textContent = best ? best.name : "--";
+  document.getElementById("ovOverallTop1Ratio").textContent = best ? `${fmtPct(best.ratio)}（${best.count}）` : "--";
 
   const mys = sortedTop1.find((x) => x.name === "米游社");
   const rank = sortedTop1.findIndex((x) => x.name === "米游社");
-  document.getElementById("kpiMysRank").textContent = rank >= 0 ? `Top${rank + 1}` : "--";
-  document.getElementById("kpiMysRatio").textContent = mys ? `${fmtPct(mys.ratio)}（${mys.count}）` : "--";
-
-  const sat = calcSingle(analysisRows, "q29", Q29_LABELS);
-  const satPositive = sat.items.filter((x) => x.code === 1 || x.code === 2).reduce((a, b) => a + b.count, 0);
-  const satRatio = sat.denominator ? satPositive / sat.denominator : 0;
-  document.getElementById("kpiSat").textContent = fmtPct(satRatio);
-  document.getElementById("kpiSatDetail").textContent = `满意（非常+比较）${satPositive}/${sat.denominator}`;
+  document.getElementById("ovOverallMysTopX").textContent = rank >= 0 ? `Top${rank + 1}` : "--";
+  document.getElementById("ovOverallMysRatio").textContent = mys ? `${fmtPct(mys.ratio)}（${mys.count}）` : "--";
 
   drawBarChart("chartTop1", top1.items, "Top1 渠道占比");
-  drawBarChart("chartSat", sat.items, "满意度占比", { preserveOrder: true });
+  renderOverviewSceneGrid();
+}
+
+function renderOverviewSceneGrid() {
+  const grid = document.getElementById("sceneGrid");
+  const tooltip = document.getElementById("sceneTooltip");
+  if (!grid || !tooltip) return;
+
+  const sceneData = OVERVIEW_SCENES.map((scene) => {
+    const top1 = calcRankTop1(analysisRows, scene.rank, CHANNELS);
+    const top1Sorted = [...top1.items].sort((a, b) => b.ratio - a.ratio);
+    const best = top1Sorted[0];
+    const mysRank = top1Sorted.findIndex((x) => x.name === "米游社");
+    const mys = top1Sorted.find((x) => x.name === "米游社");
+    const channels = calcMulti(analysisRows, scene.multi, CHANNELS).items.sort((a, b) => b.ratio - a.ratio);
+    return {
+      ...scene,
+      best,
+      mysRank,
+      mys,
+      channels,
+    };
+  });
+
+  grid.innerHTML = sceneData
+    .map(
+      (s, i) => `
+      <article class="scene-card" data-scene-index="${i}">
+        <div class="scene-title">${s.name}</div>
+        <div class="scene-line">Top1：<strong>${s.best ? s.best.name : "--"}</strong> ${s.best ? `${fmtPct(s.best.ratio)}` : "--"}</div>
+        <div class="scene-line">TopX：米游社 <strong>${s.mysRank >= 0 ? `Top${s.mysRank + 1}` : "--"}</strong> ${s.mys ? `${fmtPct(s.mys.ratio)}` : "--"}</div>
+      </article>`,
+    )
+    .join("");
+
+  const renderTooltip = (scene, x, y) => {
+    const rows = scene.channels
+      .map((c) => `<tr><td>${c.name}</td><td>${fmtPct(c.ratio)}</td></tr>`)
+      .join("");
+    tooltip.innerHTML = `<div style="font-size:12px;font-weight:700;margin-bottom:6px;">${scene.name} 渠道占比</div><table><thead><tr><th>渠道</th><th>占比</th></tr></thead><tbody>${rows}</tbody></table>`;
+    tooltip.style.display = "block";
+    tooltip.style.left = `${x + 14}px`;
+    tooltip.style.top = `${y + 14}px`;
+  };
+
+  grid.querySelectorAll(".scene-card").forEach((card) => {
+    card.addEventListener("mouseenter", (e) => {
+      const i = Number(card.dataset.sceneIndex || 0);
+      renderTooltip(sceneData[i], e.clientX, e.clientY);
+    });
+    card.addEventListener("mousemove", (e) => {
+      const i = Number(card.dataset.sceneIndex || 0);
+      renderTooltip(sceneData[i], e.clientX, e.clientY);
+    });
+    card.addEventListener("mouseleave", () => {
+      tooltip.style.display = "none";
+    });
+  });
 }
 
 function setSelectOptions(selectId, options) {
