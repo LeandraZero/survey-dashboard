@@ -176,24 +176,18 @@ h3 { font-size: 16px; }
 .overview-head {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) auto;
-  gap: 12px 16px;
-  align-items: start;
+  grid-template-rows: auto auto;
+  gap: 8px 16px;
+  align-items: end;
   margin-bottom: 12px;
 }
 
-.overview-head-left {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.overview-title {
+  margin: 0;
 }
 
-.overview-head-right {
-  text-align: right;
-  padding-top: 40px;
-}
-
-.overview-head-right .hint {
-  margin-bottom: 0;
+.overview-head-spacer {
+  min-height: 1px;
 }
 
 .overview-subtitle {
@@ -673,11 +667,11 @@ th {
 
   .overview-head {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
   }
 
-  .overview-head-right {
-    text-align: left;
-    padding-top: 0;
+  .overview-head-spacer {
+    display: none;
   }
 
   .scene-grid {
