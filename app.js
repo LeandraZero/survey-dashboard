@@ -704,55 +704,17 @@ function drawBarChart(elId, rows, title, opts = {}) {
   if (!node) return;
   const preserveOrder = !!opts.preserveOrder;
   const sorted = preserveOrder ? [...rows] : [...rows].sort((a, b) => b.ratio - a.ratio);
-
-  if (!window.echarts) {
-    node.innerHTML = sorted
-      .map((x) => `<div style="margin:8px 0;display:grid;grid-template-columns:150px 1fr 60px;gap:8px;align-items:center;">
-        <span>${x.name}</span>
-        <span style="background:#e6eef7;height:10px;border-radius:8px;overflow:hidden;"><span style="display:block;width:${(x.ratio * 100).toFixed(1)}%;background:${BAR_COLOR};height:100%;"></span></span>
-        <span>${fmtPct(x.ratio)}</span>
-      </div>`)
-      .join("");
-    return;
-  }
-
-  const chart = echarts.getInstanceByDom(node) || echarts.init(node);
-  chart.clear();
-  chart.setOption({
-    color: [BAR_COLOR],
-    tooltip: {
-      trigger: "item",
-      formatter: (p) => `${p.name}<br/>样本量: ${p.data.count}<br/>占比: ${Number(p.data.value).toFixed(1)}%`,
-    },
-    grid: { left: 10, right: 16, top: 12, bottom: 12, containLabel: true },
-    xAxis: {
-      type: "value",
-      axisLabel: { formatter: (v) => `${Number(v).toFixed(1)}%` },
-    },
-    yAxis: {
-      type: "category",
-      inverse: true,
-      axisLabel: {
-        width: 110,
-        overflow: "truncate",
-      },
-      data: sorted.map((x) => x.name),
-    },
-    series: [
-      {
-        type: "bar",
-        data: sorted.map((x) => ({
-          value: +(x.ratio * 100).toFixed(1),
-          count: x.count,
-          itemStyle: { color: BAR_COLOR },
-        })),
-        itemStyle: { color: BAR_COLOR },
-        label: { show: true, position: "right", formatter: (p) => `${Number(p.value).toFixed(1)}%` },
-      },
-    ],
-  });
-  bindChartAutoResize(node, chart);
-  requestAnimationFrame(() => chart.resize());
+  node.classList.add("barlist");
+  node.innerHTML = sorted
+    .map(
+      (x) => `
+      <div class="bar-row">
+        <div class="bar-name" title="${x.name}">${x.name}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(x.ratio * 100).toFixed(1)}%"></div></div>
+        <div class="bar-pct">${fmtPct(x.ratio)}</div>
+      </div>`,
+    )
+    .join("");
 }
 
 function bindChartAutoResize(node, chart) {
@@ -833,14 +795,14 @@ function renderOverviewSceneGrid() {
     const bars = scene.channels
       .map(
         (c) => `
-        <div class="scene-tip-row">
-          <div class="scene-tip-name">${c.name}</div>
-          <div class="scene-tip-track"><div class="scene-tip-fill" style="width:${(c.ratio * 100).toFixed(1)}%"></div></div>
-          <div class="scene-tip-pct">${fmtPct(c.ratio)}</div>
+        <div class="bar-row">
+          <div class="bar-name">${c.name}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(c.ratio * 100).toFixed(1)}%"></div></div>
+          <div class="bar-pct">${fmtPct(c.ratio)}</div>
         </div>`,
       )
       .join("");
-    tooltip.innerHTML = `<div class="scene-tip-title">${scene.name} 渠道占比</div><div class="scene-tip-bars">${bars}</div>`;
+    tooltip.innerHTML = `<div class="scene-tip-title">${scene.name} 渠道占比</div><div class="bar-rows bar-rows-dark">${bars}</div>`;
     tooltip.style.display = "block";
     tooltip.style.left = `${x + 14}px`;
     tooltip.style.top = `${y + 14}px`;
