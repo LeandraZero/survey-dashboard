@@ -191,6 +191,14 @@ h1, h2, h3 { margin: 0 0 8px 0; }
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-content: flex-start;
+  flex-direction: row;
+  text-align: left;
+}
+
+.rules-stack .rule-inline input[type="checkbox"] {
+  margin: 0;
+  flex: 0 0 auto;
 }
 
 label {
