@@ -789,12 +789,12 @@ async function loadLocal() {
   lastUploadAt = localStorage.getItem(STORAGE_UPLOAD_AT_KEY) || "";
 }
 
-async function readFileRows(file) {
+async function readFileRows(file, csvEncoding = "auto") {
   const ext = file.name.toLowerCase().split(".").pop();
   const buf = await file.arrayBuffer();
 
   if (ext === "csv") {
-    const text = decodeCsvText(buf);
+    const text = decodeCsvText(buf, csvEncoding);
     const wb = XLSX.read(text, { type: "string" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     return XLSX.utils.sheet_to_json(sheet, { defval: "" });
@@ -805,28 +805,42 @@ async function readFileRows(file) {
   return XLSX.utils.sheet_to_json(sheet, { defval: "" });
 }
 
-function decodeCsvText(buf) {
+function decodeCsvText(buf, preferEncoding = "auto") {
+  const encodings = ["utf-8", "gb18030", "gbk", "utf-16le"];
+  if (preferEncoding !== "auto") {
+    try {
+      return new TextDecoder(preferEncoding).decode(buf);
+    } catch {
+      return new TextDecoder("utf-8").decode(buf);
+    }
+  }
+
   const tryDecode = (encoding) => {
     try {
       const text = new TextDecoder(encoding).decode(buf);
-      // 评分：替换符越少越好；中文常见乱码片段越少越好
+      const head = (text.split(/\r?\n/, 1)[0] || "").slice(0, 4000);
+      // 评分：替换符、常见乱码字符越少越好；中文关键词越多越好
       const badCharCount = (text.match(/\uFFFD/g) || []).length;
-      const mojibakeCount = (text.match(/[ÃÕÐÂË¼]/g) || []).length;
-      const score = badCharCount * 5 + mojibakeCount;
-      return { encoding, text, score };
+      const mojibakeCount = (text.match(/[ÃÕÐÂË¼ÎÊÏÂµ]/g) || []).length;
+      const cjkCount = (head.match(/[\u4e00-\u9fff]/g) || []).length;
+      const keywordCount = ["原神", "米游社", "请问", "剧情", "探索", "渠道", "性别", "q1", "q2", "q3"]
+        .map((k) => (head.includes(k) ? 1 : 0))
+        .reduce((a, b) => a + b, 0);
+      const score = keywordCount * 8 + Math.min(cjkCount, 80) - badCharCount * 10 - mojibakeCount * 6;
+      return { encoding, text, score, badCharCount, mojibakeCount };
     } catch {
-      return { encoding, text: "", score: Number.MAX_SAFE_INTEGER };
+      return { encoding, text: "", score: Number.NEGATIVE_INFINITY };
     }
   };
 
-  const utf8 = tryDecode("utf-8");
-  const gb18030 = tryDecode("gb18030");
-  return utf8.score <= gb18030.score ? utf8.text : gb18030.text;
+  const candidates = encodings.map(tryDecode).sort((a, b) => b.score - a.score);
+  return candidates[0]?.text || new TextDecoder("utf-8").decode(buf);
 }
 
 async function importFiles() {
   const files = [...document.getElementById("fileInput").files];
   const appendMode = !!document.getElementById("appendMode")?.checked;
+  const csvEncoding = document.getElementById("csvEncoding")?.value || "auto";
   if (!files.length) {
     alert("请先选择文件");
     return;
@@ -838,7 +852,7 @@ async function importFiles() {
   for (let i = 0; i < files.length; i += 1) {
     const file = files[i];
     setImportProgress((i / files.length) * 100, `读取中：${file.name}`);
-    const rows = await readFileRows(file);
+    const rows = await readFileRows(file, csvEncoding);
     readRows += rows.length;
     merged = merged.concat(rows);
   }

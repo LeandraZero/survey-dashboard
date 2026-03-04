@@ -169,6 +169,16 @@
 
         <div class="upload-box">
           <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple />
+          <label style="margin-top: 8px;">
+            CSV 编码
+            <select id="csvEncoding">
+              <option value="auto" selected>自动识别</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="gb18030">GB18030</option>
+              <option value="gbk">GBK</option>
+              <option value="utf-16le">UTF-16LE</option>
+            </select>
+          </label>
           <label class="rule-inline" style="margin-top: 8px;">
             <input id="appendMode" type="checkbox" />
             追加导入（不勾选则覆盖现有数据）
