@@ -52,15 +52,15 @@ const Q2_CATEGORIES = {
 };
 
 const OVERVIEW_SCENES = [
-  { name: "抽卡规划/原石获取", multi: "q7", rank: "q8" },
-  { name: "角色养成/操作手法", multi: "q10", rank: "q11" },
-  { name: "探索解谜", multi: "q13", rank: "q14" },
-  { name: "剧情解析", multi: "q15", rank: "q16" },
-  { name: "剧情讨论", multi: "q17", rank: "q18" },
-  { name: "同人", multi: "q19", rank: "q20" },
-  { name: "游戏外活动", multi: "q21", rank: "q22" },
-  { name: "周边", multi: "q23", rank: "q24" },
-  { name: "Cosplay", multi: "q25", rank: "q26" },
+  { name: "抽卡规划/原石获取", rank: "q8" },
+  { name: "角色养成/操作手法", rank: "q11" },
+  { name: "探索解谜", rank: "q14" },
+  { name: "剧情解析", rank: "q16" },
+  { name: "剧情讨论", rank: "q18" },
+  { name: "同人", rank: "q20" },
+  { name: "游戏外活动", rank: "q22" },
+  { name: "周边", rank: "q24" },
+  { name: "Cosplay", rank: "q26" },
 ];
 
 const Q1_LABELS = {
@@ -644,6 +644,34 @@ function calcRankTop1(rows, prefix, labels) {
   return { denominator: denom, items };
 }
 
+function calcRankPresence(rows, prefix, labels) {
+  if (!rows.length) return { denominator: 0, items: [] };
+  const cols = getOptionColumns(Object.keys(rows[0]), prefix);
+  const counts = {};
+  for (const code of Object.keys(labels)) counts[code] = 0;
+
+  let denom = 0;
+  for (const r of rows) {
+    let hasAnyRank = false;
+    for (const { code, col } of cols) {
+      const rank = toInt(r[col]);
+      if (rank && rank > 0) {
+        hasAnyRank = true;
+        if (code in labels) counts[code] += 1;
+      }
+    }
+    if (hasAnyRank) denom += 1;
+  }
+
+  const items = Object.entries(labels).map(([code, name]) => ({
+    code: Number(code),
+    name,
+    count: counts[code] || 0,
+    ratio: denom ? (counts[code] || 0) / denom : 0,
+  }));
+  return { denominator: denom, items };
+}
+
 function calcSingle(rows, col, labels) {
   const answered = rows.filter((r) => str(r[col]) !== "");
   const denom = answered.length;
@@ -780,7 +808,7 @@ function renderOverviewSceneGrid() {
     const best = top1Sorted[0];
     const mysRank = top1Sorted.findIndex((x) => x.name === "米游社");
     const mys = top1Sorted.find((x) => x.name === "米游社");
-    const channels = calcMulti(analysisRows, scene.multi, CHANNELS).items.sort((a, b) => b.ratio - a.ratio);
+    const channels = calcRankPresence(analysisRows, scene.rank, CHANNELS).items.sort((a, b) => b.ratio - a.ratio);
     return {
       ...scene,
       best,
