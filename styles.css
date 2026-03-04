@@ -112,7 +112,7 @@ body {
 
 .tab {
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: transparent;
+  background: #0d224b;
   color: #1e4083;
   border-radius: var(--radius-md);
   padding: 10px 12px;
