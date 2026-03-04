@@ -66,6 +66,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
 }
 
 .brand {
@@ -104,6 +108,7 @@ body {
 
 .content {
   padding: 26px;
+  min-height: 100vh;
 }
 
 .panel { display: none; }
@@ -325,6 +330,9 @@ th {
   .sidebar {
     border-bottom-left-radius: 16px;
     border-bottom-right-radius: 16px;
+    position: static;
+    height: auto;
+    overflow: visible;
   }
 
   .tabs {
