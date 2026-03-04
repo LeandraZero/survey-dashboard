@@ -8,6 +8,7 @@ const DB_NAME = "survey_dashboard_db";
 const DB_VERSION = 1;
 const STORE_NAME = "kv";
 const RAW_ROWS_KEY = "survey_raw_rows_v1";
+const BAR_COLOR = "#8C9AEB";
 const DEFAULT_RULES = {
   terminateField: "",
   terminateValue: "1",
@@ -666,7 +667,7 @@ function drawBarChart(elId, rows, title, opts = {}) {
     node.innerHTML = sorted
       .map((x) => `<div style="margin:8px 0;display:grid;grid-template-columns:150px 1fr 60px;gap:8px;align-items:center;">
         <span>${x.name}</span>
-        <span style="background:#e6eef7;height:10px;border-radius:8px;overflow:hidden;"><span style="display:block;width:${(x.ratio * 100).toFixed(1)}%;background:#0e7490;height:100%;"></span></span>
+        <span style="background:#e6eef7;height:10px;border-radius:8px;overflow:hidden;"><span style="display:block;width:${(x.ratio * 100).toFixed(1)}%;background:${BAR_COLOR};height:100%;"></span></span>
         <span>${fmtPct(x.ratio)}</span>
       </div>`)
       .join("");
@@ -695,7 +696,7 @@ function drawBarChart(elId, rows, title, opts = {}) {
       {
         type: "bar",
         data: sorted.map((x) => ({ value: +(x.ratio * 100).toFixed(2), count: x.count })),
-        itemStyle: { color: "#0e7490" },
+        itemStyle: { color: BAR_COLOR },
         label: { show: true, position: "right", formatter: (p) => `${p.value}%` },
       },
     ],
@@ -743,14 +744,12 @@ function setSelectOptions(selectId, options) {
 function getSelectedFilterDefs() {
   const filterOptions = getFilterOptions();
   const node = document.getElementById("analysisFilter");
-  const selected = [...node.selectedOptions].map((x) => x.value);
-  if (!selected.length || (selected.length === 1 && selected[0] === "all")) {
+  const selectedValue = node.value;
+  if (!selectedValue || selectedValue === "all") {
     return [filterOptions[0]];
   }
-  return selected
-    .filter((id) => id !== "all")
-    .map((id) => filterOptions.find((x) => x.id === id))
-    .filter(Boolean);
+  const found = filterOptions.find((x) => x.id === selectedValue);
+  return found ? [found] : [filterOptions[0]];
 }
 
 function applyGroupedFilters(rows, filterDefs) {
@@ -769,6 +768,11 @@ function applyGroupedFilters(rows, filterDefs) {
     }
     return true;
   });
+}
+
+function getSingleLabel(qid, code) {
+  const labels = getSingleLabels(qid);
+  return labels[String(code)] || String(code || "");
 }
 
 function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
@@ -942,19 +946,14 @@ function bindSingleConfigEditor() {
 
     const currentQ = document.getElementById("analysisQuestion").value;
     const currentA = document.getElementById("analysisAttr").value;
-    const currentFilter = [...document.getElementById("analysisFilter").selectedOptions].map((x) => x.value);
+    const currentFilter = document.getElementById("analysisFilter").value;
     setSelectOptions("analysisQuestion", getAnalysisQuestions().map((x) => ({ id: x.id, name: x.name })));
     setSelectOptions("analysisAttr", getAttrQuestions().map((x) => ({ id: x.id, name: x.name })));
     setSelectOptions("analysisFilter", getFilterOptions().map((x) => ({ id: x.id, name: x.name })));
     if (currentQ) document.getElementById("analysisQuestion").value = currentQ;
     if (currentA) document.getElementById("analysisAttr").value = currentA;
     const filterNode = document.getElementById("analysisFilter");
-    [...filterNode.options].forEach((o) => {
-      o.selected = currentFilter.includes(o.value);
-    });
-    if (![...filterNode.selectedOptions].length && filterNode.options.length) {
-      filterNode.options[0].selected = true;
-    }
+    filterNode.value = currentFilter || "all";
     renderCross();
     alert("单选题配置已保存");
   });
@@ -1320,17 +1319,21 @@ function renderWordcloudPanel() {
   const stopNode = document.getElementById("wordcloudStopwords");
   const topNode = document.getElementById("wordcloudTopWords");
   const chartNode = document.getElementById("chartWordcloud");
+  const detailTbody = document.querySelector("#wordcloudDetailTable tbody");
   if (!fieldNode || !minNode || !stopNode || !topNode || !chartNode) return;
 
   const entries = getOpenConfigEntries();
+  const prevSelected = [...fieldNode.selectedOptions].map((o) => o.value);
   setSelectOptions("wordcloudField", entries.map(([k, v]) => ({ id: k, name: `${k} ${v}` })));
-  if (![...fieldNode.selectedOptions].length && fieldNode.options.length) {
-    fieldNode.options[0].selected = true;
-  }
+  [...fieldNode.options].forEach((opt) => {
+    opt.selected = prevSelected.includes(opt.value);
+  });
+  if (![...fieldNode.selectedOptions].length && fieldNode.options.length) fieldNode.options[0].selected = true;
   const selectedFields = [...fieldNode.selectedOptions].map((o) => o.value).filter(Boolean);
   if (!selectedFields.length) {
     topNode.innerHTML = "请先在规则配置中维护开放题字段。";
     chartNode.innerHTML = "";
+    if (detailTbody) detailTbody.innerHTML = "";
     return;
   }
 
@@ -1366,6 +1369,7 @@ function renderWordcloudPanel() {
     const fieldNames = selectedFields.map((f) => `${f}（${openConfig[f] || f}）`).join("、");
     topNode.innerHTML = `题目：${fieldNames}<br/>无可展示词汇，请降低最小词频或减少停用词。`;
     chartNode.innerHTML = "";
+    if (detailTbody) detailTbody.innerHTML = "";
     return;
   }
 
@@ -1412,6 +1416,31 @@ function renderWordcloudPanel() {
     ],
   });
   requestAnimationFrame(() => chart.resize());
+
+  if (!detailTbody) return;
+  const rowsForTable = [];
+  for (const row of analysisRows) {
+    const parts = [];
+    for (const f of selectedFields) {
+      const text = str(row[f]);
+      if (!text) continue;
+      parts.push(`${openConfig[f] || f}: ${text}`);
+    }
+    if (!parts.length) continue;
+    rowsForTable.push({
+      id: str(row.id),
+      age: getSingleLabel("q33", str(row.q33)),
+      gender: getSingleLabel("q34", str(row.q34)),
+      answer: parts.join(" | "),
+    });
+  }
+  detailTbody.innerHTML = rowsForTable
+    .slice(0, 500)
+    .map(
+      (r) =>
+        `<tr><td>${r.id || "-"}</td><td>${r.age || "-"}</td><td>${r.gender || "-"}</td><td style="white-space:normal;word-break:break-word;">${r.answer}</td></tr>`,
+    )
+    .join("");
 }
 
 async function bootstrap() {
@@ -1426,9 +1455,7 @@ async function bootstrap() {
   setSelectOptions("analysisAttr", getAttrQuestions().map((x) => ({ id: x.id, name: x.name })));
   setSelectOptions("analysisFilter", getFilterOptions().map((x) => ({ id: x.id, name: x.name })));
   const filterNode = document.getElementById("analysisFilter");
-  if (filterNode && filterNode.options.length) {
-    filterNode.options[0].selected = true;
-  }
+  if (filterNode && filterNode.options.length) filterNode.value = "all";
 
   bindTabs();
   bindActions();
