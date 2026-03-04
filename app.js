@@ -356,13 +356,27 @@ function getSingleTitle(qid, fallback = qid) {
 }
 
 function getAnalysisQuestions() {
-  return [
+  const core = [
     { id: "q4", name: "Q4 整体第一心智", type: "rank_top1", prefix: "q4", labels: CHANNELS },
     { id: "q3", name: "Q3 整体渠道渗透", type: "multi", prefix: "q3", labels: CHANNELS },
     { id: "q2", name: "Q2 内容心智", type: "multi", prefix: "q2", labels: Q2_CATEGORIES },
-    { id: "q29", name: getSingleTitle("q29", "Q29"), type: "single", col: "q29", labels: getSingleLabels("q29") },
-    { id: "q27", name: getSingleTitle("q27", "Q27"), type: "single", col: "q27", labels: getSingleLabels("q27") },
   ];
+  const coreIds = new Set(core.map((x) => x.id));
+
+  const singleDefs = Object.keys(singleConfig)
+    .filter((qid) => /^q\d+$/.test(qid))
+    .map((qid) => ({
+      id: qid,
+      name: getSingleTitle(qid, qid),
+      type: "single",
+      col: qid,
+      labels: getSingleLabels(qid),
+    }))
+    .filter((x) => Object.keys(x.labels || {}).length > 0)
+    .filter((x) => !coreIds.has(x.id))
+    .sort((a, b) => Number(a.id.replace("q", "")) - Number(b.id.replace("q", "")));
+
+  return [...core, ...singleDefs];
 }
 
 function getAttrQuestions() {
