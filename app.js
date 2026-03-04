@@ -273,6 +273,7 @@ function fmtPct(n) {
 function fmtTime(ts) {
   if (!ts) return "--";
   const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "--";
   const p = (x) => String(x).padStart(2, "0");
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
@@ -786,7 +787,13 @@ async function loadLocal() {
   try {
     if (!Array.isArray(rawRows)) rawRows = [];
   } catch {}
-  lastUploadAt = localStorage.getItem(STORAGE_UPLOAD_AT_KEY) || "";
+  const rawTime = localStorage.getItem(STORAGE_UPLOAD_AT_KEY) || "";
+  if (!rawTime) {
+    lastUploadAt = "";
+    return;
+  }
+  const parsed = new Date(rawTime);
+  lastUploadAt = Number.isNaN(parsed.getTime()) ? "" : rawTime;
 }
 
 async function readFileRows(file, csvEncoding = "auto") {
