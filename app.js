@@ -692,12 +692,11 @@ function drawBarChart(elId, rows, title, opts = {}) {
   chart.clear();
   chart.setOption({
     color: [BAR_COLOR],
-    title: { text: title, textStyle: { fontSize: 13, fontWeight: 500 } },
     tooltip: {
       trigger: "item",
       formatter: (p) => `${p.name}<br/>样本量: ${p.data.count}<br/>占比: ${Number(p.data.value).toFixed(1)}%`,
     },
-    grid: { left: 120, right: 20, top: 40, bottom: 20, containLabel: true },
+    grid: { left: 10, right: 16, top: 12, bottom: 12, containLabel: true },
     xAxis: {
       type: "value",
       axisLabel: { formatter: (v) => `${Number(v).toFixed(1)}%` },
@@ -705,6 +704,10 @@ function drawBarChart(elId, rows, title, opts = {}) {
     yAxis: {
       type: "category",
       inverse: true,
+      axisLabel: {
+        width: 110,
+        overflow: "truncate",
+      },
       data: sorted.map((x) => x.name),
     },
     series: [
