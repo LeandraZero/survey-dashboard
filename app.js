@@ -356,12 +356,8 @@ function getSingleTitle(qid, fallback = qid) {
 }
 
 function getAnalysisQuestions() {
-  const core = [
-    { id: "q4", name: "Q4 整体第一心智", type: "rank_top1", prefix: "q4", labels: CHANNELS },
-    { id: "q3", name: "Q3 整体渠道渗透", type: "multi", prefix: "q3", labels: CHANNELS },
-    { id: "q2", name: "Q2 内容心智", type: "multi", prefix: "q2", labels: Q2_CATEGORIES },
-  ];
-  const coreIds = new Set(core.map((x) => x.id));
+  const optionDefs = getOptionQuestionDefs();
+  const optionIds = new Set(optionDefs.map((x) => x.id));
 
   const singleDefs = Object.keys(singleConfig)
     .filter((qid) => /^q\d+$/.test(qid))
@@ -373,10 +369,10 @@ function getAnalysisQuestions() {
       labels: getSingleLabels(qid),
     }))
     .filter((x) => Object.keys(x.labels || {}).length > 0)
-    .filter((x) => !coreIds.has(x.id))
+    .filter((x) => !optionIds.has(x.id))
     .sort((a, b) => Number(a.id.replace("q", "")) - Number(b.id.replace("q", "")));
 
-  return [...core, ...singleDefs];
+  return [...optionDefs, ...singleDefs];
 }
 
 function getAttrQuestions() {
@@ -392,29 +388,95 @@ function getFilterOptions() {
   const q34Labels = getSingleLabels("q34");
   const q1Labels = getSingleLabels("q1");
   const q29Labels = getSingleLabels("q29");
+  const q27Labels = getSingleLabels("q27");
   return [
-    { id: "all", name: "不过滤", fn: () => true },
+    { id: "all", name: "不过滤", groupKey: "all", fn: () => true },
     ...Object.entries(q34Labels).map(([code, label]) => ({
       id: `q34=${code}`,
       name: `${getSingleTitle("q34", "Q34")}=${label}`,
+      groupKey: "q34",
       fn: (r) => str(r.q34) === String(code),
     })),
     ...Object.entries(q1Labels).map(([code, label]) => ({
       id: `q1=${code}`,
       name: `${getSingleTitle("q1", "Q1")}=${label}`,
+      groupKey: "q1",
       fn: (r) => str(r.q1) === String(code),
+    })),
+    ...Object.entries(q27Labels).map(([code, label]) => ({
+      id: `q27=${code}`,
+      name: `${getSingleTitle("q27", "Q27")}=${label}`,
+      groupKey: "q27",
+      fn: (r) => str(r.q27) === String(code),
     })),
     ...Object.entries(q29Labels).map(([code, label]) => ({
       id: `q29=${code}`,
       name: `${getSingleTitle("q29", "Q29")}=${label}`,
+      groupKey: "q29",
       fn: (r) => str(r.q29) === String(code),
     })),
     ...Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
       id: `q2_${code}=1`,
       name: `Q2包含：${label}`,
+      groupKey: "q2",
       fn: (r) => str(r[`q2_${code}_${findQ2ColumnSuffix(code, r)}`] || r[`q2_${code}`]) === "1" || hasQ2ByCode(r, Number(code)),
     })),
   ];
+}
+
+function getOptionQuestionDefs() {
+  const headers = getHeaders();
+  const questionMap = new Map();
+  const re = /^q(\d+)_(\d+)_(.+)$/;
+
+  for (const h of headers) {
+    const m = h.match(re);
+    if (!m) continue;
+    const qid = `q${m[1]}`;
+    const code = Number(m[2]);
+    const label = m[3];
+    if (!questionMap.has(qid)) {
+      questionMap.set(qid, { id: qid, options: {}, columns: [] });
+    }
+    const q = questionMap.get(qid);
+    q.options[code] = label;
+    q.columns.push(h);
+  }
+
+  const defs = [];
+  for (const [qid, q] of questionMap.entries()) {
+    const labels = Object.fromEntries(
+      Object.entries(q.options)
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .map(([k, v]) => [Number(k), v]),
+    );
+    const isRank = inferRankQuestion(q.columns);
+    defs.push({
+      id: qid,
+      name: getSingleTitle(qid, qid.toUpperCase()),
+      type: isRank ? "rank_top1" : "multi",
+      prefix: qid,
+      labels,
+    });
+  }
+
+  return defs.sort((a, b) => Number(a.id.replace("q", "")) - Number(b.id.replace("q", "")));
+}
+
+function inferRankQuestion(columns) {
+  if (!columns.length || !rawRows.length) return false;
+  const inspectRows = rawRows.slice(0, 400);
+  for (const row of inspectRows) {
+    for (const c of columns) {
+      const v = str(row[c]);
+      if (!v) continue;
+      if (v === "0" || v === "1") continue;
+      if (v === "-1" || v === " -1") return true;
+      const n = toInt(v);
+      if (n !== null && n > 1) return true;
+    }
+  }
+  return false;
 }
 
 function applySampleRules(rows) {
@@ -676,6 +738,24 @@ function getSelectedFilterDefs() {
     .filter(Boolean);
 }
 
+function applyGroupedFilters(rows, filterDefs) {
+  if (!filterDefs.length || filterDefs[0]?.id === "all") return rows;
+  const groups = new Map();
+  for (const def of filterDefs) {
+    const key = def.groupKey || def.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(def);
+  }
+
+  // SPSS 多重响应思路：同一题内 OR，不同题之间 AND
+  return rows.filter((row) => {
+    for (const defs of groups.values()) {
+      if (!defs.some((d) => d.fn(row))) return false;
+    }
+    return true;
+  });
+}
+
 function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -717,7 +797,7 @@ function renderCross() {
   const attrDef = attrQuestions.find((x) => x.id === attrId) || attrQuestions[0];
   const filterDefs = getSelectedFilterDefs();
 
-  const filtered = analysisRows.filter((r) => filterDefs.every((f) => f.fn(r)));
+  const filtered = applyGroupedFilters(analysisRows, filterDefs);
   const overall = getQuestionDistribution(filtered, qDef);
   drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${filtered.length}）`);
 
