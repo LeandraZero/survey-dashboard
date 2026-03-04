@@ -84,7 +84,7 @@ body {
   top: 0;
   height: 100vh;
   overflow: auto;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 .brand {
@@ -92,7 +92,7 @@ body {
   letter-spacing: 0.35px;
   font-size: 15px;
   opacity: 0.95;
-  padding: 4px 2px 10px;
+  padding: 0 2px 8px;
 }
 
 .brand-logo {
@@ -168,9 +168,38 @@ h3 { font-size: 16px; }
 }
 
 .overview-sample-line {
-  margin-top: -8px;
-  margin-bottom: 12px;
+  margin-top: 4px;
+  margin-bottom: 0;
   font-weight: 600;
+}
+
+.overview-head {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  gap: 12px 16px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.overview-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.overview-head-right {
+  text-align: right;
+  padding-top: 40px;
+}
+
+.overview-head-right .hint {
+  margin-bottom: 0;
+}
+
+.overview-subtitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
 }
 
 .overview-layout {
@@ -640,6 +669,15 @@ th {
 
   .overview-layout {
     grid-template-columns: 1fr;
+  }
+
+  .overview-head {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-head-right {
+    text-align: left;
+    padding-top: 0;
   }
 
   .scene-grid {
