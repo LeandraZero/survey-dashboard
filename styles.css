@@ -218,20 +218,14 @@ h3 { font-size: 16px; }
   font-size: 20px;
 }
 
-.overview-left .top-rank-line,
-.overview-left .top-rank-line .top-rank-name,
-.overview-left .top-rank-line .top-rank-value {
-  font-size: 15px;
-}
-
-.top-rank-line {
+.top-rank-row {
   font-weight: 400;
 }
 
-.top-rank-line.rank-1,
-.top-rank-line.rank-1 .top-rank-label,
-.top-rank-line.rank-1 .top-rank-name,
-.top-rank-line.rank-1 .top-rank-value {
+.top-rank-row.rank-1,
+.top-rank-row.rank-1 .top-rank-label,
+.top-rank-row.rank-1 .bar-name,
+.top-rank-row.rank-1 .bar-pct {
   font-weight: 700;
 }
 
@@ -336,7 +330,7 @@ h3 { font-size: 16px; }
 
 .bar-row {
   display: grid;
-  grid-template-columns: 100px 1fr 54px;
+  grid-template-columns: 132px 1fr 54px;
   align-items: center;
   gap: 8px;
   font-size: 12px;
@@ -357,8 +351,12 @@ h3 { font-size: 16px; }
 
 .bar-fill {
   height: 100%;
-  background: #8c9aeb;
+  background: #092e72;
   border-radius: 995px;
+}
+
+.bar-fill.mys-fill {
+  background: #07b0ff;
 }
 
 .bar-pct {
@@ -373,6 +371,14 @@ h3 { font-size: 16px; }
 
 .bar-rows-dark .bar-track {
   background: rgba(148, 163, 184, 0.3);
+}
+
+.top-rank-row .bar-name {
+  font-size: 13px;
+}
+
+.top-rank-row .bar-pct {
+  font-size: 12px;
 }
 
 .barlist {
