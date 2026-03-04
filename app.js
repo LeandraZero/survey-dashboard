@@ -774,12 +774,14 @@ function setSelectOptions(selectId, options) {
 function getSelectedFilterDefs() {
   const filterOptions = getFilterOptions();
   const node = document.getElementById("analysisFilter");
-  const selectedValue = node.value;
-  if (!selectedValue || selectedValue === "all") {
+  const selected = [...node.selectedOptions].map((x) => x.value);
+  if (!selected.length || (selected.length === 1 && selected[0] === "all")) {
     return [filterOptions[0]];
   }
-  const found = filterOptions.find((x) => x.id === selectedValue);
-  return found ? [found] : [filterOptions[0]];
+  return selected
+    .filter((id) => id !== "all")
+    .map((id) => filterOptions.find((x) => x.id === id))
+    .filter(Boolean);
 }
 
 function applyGroupedFilters(rows, filterDefs) {
@@ -976,14 +978,19 @@ function bindSingleConfigEditor() {
 
     const currentQ = document.getElementById("analysisQuestion").value;
     const currentA = document.getElementById("analysisAttr").value;
-    const currentFilter = document.getElementById("analysisFilter").value;
+    const currentFilter = [...document.getElementById("analysisFilter").selectedOptions].map((x) => x.value);
     setSelectOptions("analysisQuestion", getAnalysisQuestions().map((x) => ({ id: x.id, name: x.name })));
     setSelectOptions("analysisAttr", getAttrQuestions().map((x) => ({ id: x.id, name: x.name })));
     setSelectOptions("analysisFilter", getFilterOptions().map((x) => ({ id: x.id, name: x.name })));
     if (currentQ) document.getElementById("analysisQuestion").value = currentQ;
     if (currentA) document.getElementById("analysisAttr").value = currentA;
     const filterNode = document.getElementById("analysisFilter");
-    filterNode.value = currentFilter || "all";
+    [...filterNode.options].forEach((o) => {
+      o.selected = currentFilter.includes(o.value);
+    });
+    if (![...filterNode.selectedOptions].length && filterNode.options.length) {
+      filterNode.options[0].selected = true;
+    }
     renderCross();
     alert("单选题配置已保存");
   });
@@ -1508,7 +1515,7 @@ async function bootstrap() {
   setSelectOptions("analysisAttr", getAttrQuestions().map((x) => ({ id: x.id, name: x.name })));
   setSelectOptions("analysisFilter", getFilterOptions().map((x) => ({ id: x.id, name: x.name })));
   const filterNode = document.getElementById("analysisFilter");
-  if (filterNode && filterNode.options.length) filterNode.value = "all";
+  if (filterNode && filterNode.options.length) filterNode.options[0].selected = true;
 
   bindTabs();
   bindActions();
