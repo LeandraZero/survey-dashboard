@@ -1333,6 +1333,14 @@ function tokenizeZh(text) {
   return (t.match(/[\u4e00-\u9fff]{1,}|[A-Za-z0-9_]+/g) || []).map((x) => x.trim()).filter(Boolean);
 }
 
+function extractContinuousPhrases(text, minLen, maxLen) {
+  const t = String(text || "");
+  // 保留连续中文/英文数字短语，确保“提瓦特小助手”这类完整词可直接入词云
+  return (t.match(/[\u4e00-\u9fffA-Za-z0-9_]{2,}/g) || [])
+    .map((x) => x.trim())
+    .filter((x) => x.length >= minLen && x.length <= maxLen);
+}
+
 function getOpenConfigEntries() {
   return Object.entries(openConfig)
     .filter(([k]) => k)
@@ -1388,7 +1396,10 @@ function renderWordcloudPanel() {
       const raw = str(row[field]);
       if (!raw) continue;
       sourceCount += 1;
-      const words = tokenizeZh(raw);
+      const words = [
+        ...tokenizeZh(raw),
+        ...extractContinuousPhrases(raw, minLen, maxLen),
+      ];
       for (const w0 of words) {
         const w = w0.trim();
         if (!w) continue;
