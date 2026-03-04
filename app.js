@@ -1,6 +1,7 @@
 const STORAGE_UPLOAD_AT_KEY = "survey_last_upload_at_v1";
 const RULES_KEY = "survey_rules_v1";
 const SINGLE_CONFIG_KEY = "survey_single_config_v1";
+const OPEN_CONFIG_KEY = "survey_open_config_v1";
 const ACCESS_PASSWORD = "miyoushe2026";
 const ACCESS_SESSION_KEY = "survey_access_granted_v1";
 const DB_NAME = "survey_dashboard_db";
@@ -118,6 +119,7 @@ let lastImportStats = null;
 let sampleStats = { total: 0, terminateExcluded: 0, invalidExcluded: 0, final: 0 };
 let currentRules = { ...DEFAULT_RULES };
 let singleConfig = JSON.parse(JSON.stringify(DEFAULT_SINGLE_CONFIG));
+let openConfig = { q32: "Q32 平台期待（开放题）" };
 let appStarted = false;
 
 function unlockApp() {
@@ -330,6 +332,19 @@ function loadSingleConfig() {
 
 function saveSingleConfig() {
   localStorage.setItem(SINGLE_CONFIG_KEY, JSON.stringify(singleConfig));
+}
+
+function loadOpenConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(OPEN_CONFIG_KEY) || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      openConfig = { ...openConfig, ...parsed };
+    }
+  } catch {}
+}
+
+function saveOpenConfig() {
+  localStorage.setItem(OPEN_CONFIG_KEY, JSON.stringify(openConfig));
 }
 
 function getSingleLabels(qid) {
@@ -834,6 +849,60 @@ function bindSingleConfigEditor() {
   });
 }
 
+function guessOpenQuestionFields() {
+  const headers = getHeaders();
+  return headers.filter((h) => /^q\d+$/.test(h) || /^qc\d+/.test(h));
+}
+
+function renderOpenConfigPanel() {
+  const fieldSelect = document.getElementById("openConfigField");
+  const titleInput = document.getElementById("openConfigTitle");
+  const preview = document.getElementById("openConfigPreview");
+  if (!fieldSelect || !titleInput || !preview) return;
+
+  const candidates = Array.from(new Set([...Object.keys(openConfig), ...guessOpenQuestionFields()]))
+    .sort((a, b) => {
+      const na = Number(a.replace(/\D/g, "")) || 0;
+      const nb = Number(b.replace(/\D/g, "")) || 0;
+      return na - nb;
+    });
+
+  const prev = fieldSelect.value;
+  setSelectOptionsWithRaw("openConfigField", candidates);
+  if (prev && candidates.includes(prev)) fieldSelect.value = prev;
+  if (!fieldSelect.value && candidates.length) fieldSelect.value = candidates[0];
+
+  const key = fieldSelect.value;
+  titleInput.value = openConfig[key] || key;
+
+  preview.innerHTML = Object.entries(openConfig)
+    .sort((a, b) => {
+      const na = Number(a[0].replace(/\D/g, "")) || 0;
+      const nb = Number(b[0].replace(/\D/g, "")) || 0;
+      return na - nb;
+    })
+    .map(([k, v]) => `${k}：${v}`)
+    .join("<br/>");
+}
+
+function bindOpenConfigEditor() {
+  const fieldSelect = document.getElementById("openConfigField");
+  const titleInput = document.getElementById("openConfigTitle");
+  const saveBtn = document.getElementById("btnSaveOpenConfig");
+  if (!fieldSelect || !titleInput || !saveBtn) return;
+
+  fieldSelect.addEventListener("change", renderOpenConfigPanel);
+  saveBtn.addEventListener("click", () => {
+    const key = fieldSelect.value;
+    if (!key) return;
+    const title = str(titleInput.value) || key;
+    openConfig[key] = title;
+    saveOpenConfig();
+    renderOpenConfigPanel();
+    alert("开放题配置已保存");
+  });
+}
+
 function setSelectOptionsWithRaw(selectId, values) {
   const node = document.getElementById(selectId);
   if (!node) return;
@@ -1088,6 +1157,7 @@ function renderAll() {
   renderOverview();
   renderRulesPanel();
   renderSingleConfigPanel();
+  renderOpenConfigPanel();
   if (document.getElementById("panel-cross").classList.contains("active")) {
     renderCross();
   }
@@ -1097,6 +1167,7 @@ async function bootstrap() {
   await loadLocal();
   rawRows = dedupRows(rawRows);
   loadSingleConfig();
+  loadOpenConfig();
   loadRules(getHeaders());
   recomputeAnalysisRows();
 
@@ -1111,6 +1182,7 @@ async function bootstrap() {
   bindTabs();
   bindActions();
   bindSingleConfigEditor();
+  bindOpenConfigEditor();
   setImportProgress(0, "未开始导入");
   renderAll();
 }

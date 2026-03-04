@@ -184,6 +184,25 @@
           </div>
           <div class="upload-log" id="singleConfigPreview"></div>
         </div>
+
+        <div class="chart-card" style="margin-top: 12px;">
+          <h3>开放题题目赋值</h3>
+          <p class="hint">用于维护开放题字段与题目名称映射，便于后续导出或质检查看。</p>
+          <div class="rules-grid">
+            <label>
+              开放题字段
+              <select id="openConfigField"></select>
+            </label>
+            <label>
+              题目名称
+              <input id="openConfigTitle" type="text" placeholder="例如 Q32 平台期待（开放题）" />
+            </label>
+          </div>
+          <div class="upload-actions">
+            <button id="btnSaveOpenConfig">保存开放题配置</button>
+          </div>
+          <div class="upload-log" id="openConfigPreview"></div>
+        </div>
       </section>
 
       <section class="panel" id="panel-upload">
