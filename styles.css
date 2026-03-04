@@ -112,17 +112,17 @@ body {
 .tab {
   border: none;
   background: #0d224b;
-  color: #1e4083;
+  color: #3261bd;
   border-radius: var(--radius-md);
   padding: 10px 12px;
   text-align: left;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: none;
 }
 
 .tab:not(.active):hover {
   background: #0d224b;
-  color: #0d224b;
+  color: #3261bd;
 }
 
 .tab.active {
