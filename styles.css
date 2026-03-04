@@ -21,10 +21,7 @@
 
 body {
   margin: 0;
-  background:
-    radial-gradient(1200px 600px at 0% -10%, #dde7ff 0%, rgba(221, 231, 255, 0) 60%),
-    radial-gradient(900px 500px at 100% 0%, #e8f8f2 0%, rgba(232, 248, 242, 0) 55%),
-    var(--bg);
+  background: var(--bg) url("./background.png") center center / cover no-repeat fixed;
   color: var(--text);
   font-family: "Noto Sans SC", sans-serif;
   line-height: 1.45;
