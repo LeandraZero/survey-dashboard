@@ -198,16 +198,23 @@ label {
 
 select,
 input[type="file"],
+input[type="text"],
+input[type="number"],
+input[type="password"],
 button {
   font: inherit;
 }
 
 select,
-input[type="file"] {
+input[type="file"],
+input[type="text"],
+input[type="number"],
+input[type="password"] {
   border: 1px solid var(--line);
   background: #fff;
   border-radius: 10px;
   padding: 9px;
+  min-height: 40px;
 }
 
 .field-tip {
