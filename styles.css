@@ -225,14 +225,14 @@ h3 { font-size: 16px; }
 .top-rank-head {
   min-width: 180px;
   display: inline-flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
-  text-align: right;
+  text-align: left;
 }
 
 .top-rank-value {
   min-width: 56px;
-  text-align: left;
+  text-align: right;
 }
 
 .top-rank-label {
@@ -377,7 +377,7 @@ h3 { font-size: 16px; }
 
 .top-rank-line {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
   font-weight: 400;
