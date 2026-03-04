@@ -711,7 +711,7 @@ function drawBarChart(elId, rows, title, opts = {}) {
       <div class="bar-row">
         <div class="bar-name ${x.name === "米游社" ? "mys-text" : ""}" title="${x.name}">${x.name}</div>
         <div class="bar-track"><div class="bar-fill ${x.name === "米游社" ? "mys-fill" : ""}" style="width:${(x.ratio * 100).toFixed(1)}%"></div></div>
-        <div class="bar-pct">${fmtPct(x.ratio)}</div>
+        <div class="bar-pct ${x.name === "米游社" ? "mys-pct" : ""}">${fmtPct(x.ratio)}</div>
       </div>`,
     )
     .join("");
@@ -751,7 +751,7 @@ function topRankLinesHtml(sortedItems, limit = 3) {
           <span class="top-rank-label" data-rank="${idx + 1}">Top${idx + 1}：</span>
           <span class="top-rank-name">${formatName(x ? x.name : "--")}</span>
         </span>
-        <span class="top1-value top-rank-value">${x ? fmtPct(x.ratio) : "--"}</span>
+        <span class="top1-value top-rank-value ${x && x.name === "米游社" ? "mys-pct" : ""}">${x ? fmtPct(x.ratio) : "--"}</span>
       </div>`,
     )
     .join("");
@@ -773,7 +773,7 @@ function renderOverview() {
   if (mysExtraNode) {
     if (rank > 2 && mys) {
       mysExtraNode.style.display = "";
-      mysExtraNode.innerHTML = `<span class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${rank + 1}：</span><span class="mys-text">米游社</span></span><span class="top1-value top-rank-value">${fmtPct(mys.ratio)}</span></span>`;
+      mysExtraNode.innerHTML = `<span class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${rank + 1}：</span><span class="mys-text">米游社</span></span><span class="top1-value top-rank-value mys-pct">${fmtPct(mys.ratio)}</span></span>`;
     } else {
       mysExtraNode.style.display = "none";
       mysExtraNode.textContent = "";
@@ -810,7 +810,7 @@ function renderOverviewSceneGrid() {
       <article class="scene-card" data-scene-index="${i}">
         <div class="scene-title">${s.name}</div>
         ${topRankLinesHtml(s.top3, 3)}
-        ${s.mys && s.mysRank > 2 ? `<div class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${s.mysRank + 1}：</span><span class="mys-text">米游社</span></span><span class="top1-value top-rank-value">${fmtPct(s.mys.ratio)}</span></div>` : ""}
+        ${s.mys && s.mysRank > 2 ? `<div class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${s.mysRank + 1}：</span><span class="mys-text">米游社</span></span><span class="top1-value top-rank-value mys-pct">${fmtPct(s.mys.ratio)}</span></div>` : ""}
       </article>`,
     )
     .join("");
@@ -822,7 +822,7 @@ function renderOverviewSceneGrid() {
         <div class="bar-row">
           <div class="bar-name ${c.name === "米游社" ? "mys-text" : ""}">${c.name}</div>
           <div class="bar-track"><div class="bar-fill ${c.name === "米游社" ? "mys-fill" : ""}" style="width:${(c.ratio * 100).toFixed(1)}%"></div></div>
-          <div class="bar-pct">${fmtPct(c.ratio)}</div>
+          <div class="bar-pct ${c.name === "米游社" ? "mys-pct" : ""}">${fmtPct(c.ratio)}</div>
         </div>`,
       )
       .join("");

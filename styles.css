@@ -271,6 +271,10 @@ h3 { font-size: 16px; }
   color: #07b0ff;
 }
 
+.mys-pct {
+  color: #07b0ff;
+}
+
 .scene-grid {
   flex: 1 1 auto;
   width: 100%;
