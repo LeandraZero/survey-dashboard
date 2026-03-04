@@ -138,6 +138,11 @@ h1, h2, h3 { margin: 0 0 8px 0; }
   padding: 14px;
 }
 
+.chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
 .kpi {
   font-size: 32px;
   margin: 8px 0 0;
@@ -166,7 +171,11 @@ h1, h2, h3 { margin: 0 0 8px 0; }
   min-width: 0;
 }
 
-.chart { height: 340px; }
+.chart {
+  flex: 1 1 auto;
+  min-height: 340px;
+  height: 100%;
+}
 
 .filters {
   display: grid;

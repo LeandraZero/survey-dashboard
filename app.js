@@ -10,6 +10,7 @@ const STORE_NAME = "kv";
 const RAW_ROWS_KEY = "survey_raw_rows_v1";
 const BAR_COLOR = "#8C9AEB";
 const chartResizeObservers = new WeakMap();
+let chartWindowResizeBound = false;
 const DEFAULT_RULES = {
   terminateField: "",
   terminateValue: "1",
@@ -697,7 +698,11 @@ function drawBarChart(elId, rows, title, opts = {}) {
     series: [
       {
         type: "bar",
-        data: sorted.map((x) => ({ value: +(x.ratio * 100).toFixed(1), count: x.count })),
+        data: sorted.map((x) => ({
+          value: +(x.ratio * 100).toFixed(1),
+          count: x.count,
+          itemStyle: { color: BAR_COLOR },
+        })),
         itemStyle: { color: BAR_COLOR },
         label: { show: true, position: "right", formatter: (p) => `${Number(p.value).toFixed(1)}%` },
       },
@@ -716,6 +721,18 @@ function bindChartAutoResize(node, chart) {
   });
   observer.observe(container);
   chartResizeObservers.set(node, observer);
+  bindChartWindowResize();
+}
+
+function bindChartWindowResize() {
+  if (chartWindowResizeBound || !window.echarts) return;
+  chartWindowResizeBound = true;
+  window.addEventListener("resize", () => {
+    const charts = echarts.getInstanceByDom
+      ? [...document.querySelectorAll(".chart")].map((n) => echarts.getInstanceByDom(n)).filter(Boolean)
+      : [];
+    charts.forEach((c) => c.resize());
+  });
 }
 
 function renderOverview() {
