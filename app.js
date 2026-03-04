@@ -674,6 +674,7 @@ function drawBarChart(elId, rows, title) {
     },
     yAxis: {
       type: "category",
+      inverse: true,
       data: sorted.map((x) => x.name),
     },
     series: [
