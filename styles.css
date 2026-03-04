@@ -408,6 +408,8 @@ h3 { font-size: 16px; }
 
 #ovOverallMysExtra {
   text-align: right;
+  margin: 2px 0 0;
+  line-height: 1.45;
 }
 
 .barlist {
