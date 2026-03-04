@@ -222,6 +222,19 @@ h3 { font-size: 16px; }
   margin-left: 12px;
 }
 
+.top-rank-head {
+  min-width: 180px;
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  text-align: right;
+}
+
+.top-rank-value {
+  min-width: 56px;
+  text-align: left;
+}
+
 .top-rank-label {
   display: inline-flex;
   align-items: center;
@@ -251,7 +264,7 @@ h3 { font-size: 16px; }
 }
 
 .mys-text {
-  color: #07b0ff;
+  color: #092e72;
 }
 
 .scene-grid {
@@ -345,7 +358,7 @@ h3 { font-size: 16px; }
 }
 
 .bar-fill.mys-fill {
-  background: #07b0ff;
+  background: #092e72;
 }
 
 .bar-pct {
