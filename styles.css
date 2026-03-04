@@ -218,16 +218,21 @@ h3 { font-size: 16px; }
   font-size: 20px;
 }
 
-.top1-line,
-.top-rank-line {
-  font-weight: 700;
+.overview-left .top-rank-line,
+.overview-left .top-rank-line .top-rank-name,
+.overview-left .top-rank-line .top-rank-value {
+  font-size: 18px;
 }
 
-.overview-left .top1-line,
-.overview-left .top1-line strong,
-.overview-left .top-rank-line,
-.overview-left .top-rank-line strong {
-  font-size: 18px;
+.top-rank-line {
+  font-weight: 400;
+}
+
+.top-rank-line.rank-1,
+.top-rank-line.rank-1 .top-rank-label,
+.top-rank-line.rank-1 .top-rank-name,
+.top-rank-line.rank-1 .top-rank-value {
+  font-weight: 700;
 }
 
 .top1-value {
@@ -238,7 +243,7 @@ h3 { font-size: 16px; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .top-rank-label[data-rank="1"]::before {
@@ -260,6 +265,10 @@ h3 { font-size: 16px; }
   font-size: 13px;
   line-height: 1;
   flex: 0 0 auto;
+}
+
+.mys-text {
+  color: #07b0ff;
 }
 
 .scene-grid {
