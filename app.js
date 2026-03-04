@@ -1,5 +1,6 @@
 const STORAGE_UPLOAD_AT_KEY = "survey_last_upload_at_v1";
 const RULES_KEY = "survey_rules_v1";
+const SINGLE_CONFIG_KEY = "survey_single_config_v1";
 const ACCESS_PASSWORD = "miyoushe2026";
 const ACCESS_SESSION_KEY = "survey_access_granted_v1";
 const DB_NAME = "survey_dashboard_db";
@@ -76,22 +77,13 @@ const Q34_LABELS = {
   3: "不方便透露",
 };
 
-const ANALYSIS_QUESTIONS = [
-  { id: "q4", name: "Q4 整体第一心智", type: "rank_top1", prefix: "q4", labels: CHANNELS },
-  { id: "q3", name: "Q3 整体渠道渗透", type: "multi", prefix: "q3", labels: CHANNELS },
-  { id: "q2", name: "Q2 内容心智", type: "multi", prefix: "q2", labels: Q2_CATEGORIES },
-  { id: "q29", name: "Q29 米游社满意度", type: "single", col: "q29", labels: Q29_LABELS },
-  { id: "q27", name: "Q27 米游社使用频次", type: "single", col: "q27", labels: Q27_LABELS },
-];
-
-const ATTR_QUESTIONS = [
-  { id: "q34", name: "Q34 性别", col: "q34", labels: Q34_LABELS },
-  { id: "q1", name: "Q1 活跃度", col: "q1", labels: Q1_LABELS },
-  { id: "q27", name: "Q27 米游社使用频次", col: "q27", labels: Q27_LABELS },
-  {
-    id: "q33",
-    name: "Q33 出生年份",
-    col: "q33",
+const DEFAULT_SINGLE_CONFIG = {
+  q1: { title: "Q1 活跃度", labels: Q1_LABELS },
+  q27: { title: "Q27 米游社使用频次", labels: Q27_LABELS },
+  q29: { title: "Q29 米游社满意度", labels: Q29_LABELS },
+  q34: { title: "Q34 性别", labels: Q34_LABELS },
+  q33: {
+    title: "Q33 出生年份",
     labels: {
       1: "1986或更早",
       2: "1987",
@@ -117,31 +109,7 @@ const ATTR_QUESTIONS = [
       22: "2007",
     },
   },
-];
-
-const FILTER_OPTIONS = [
-  { id: "all", name: "不过滤", fn: () => true },
-  ...Object.entries(Q34_LABELS).map(([code, label]) => ({
-    id: `q34=${code}`,
-    name: `性别=${label}`,
-    fn: (r) => str(r.q34) === String(code),
-  })),
-  ...Object.entries(Q1_LABELS).map(([code, label]) => ({
-    id: `q1=${code}`,
-    name: `活跃度=${label}`,
-    fn: (r) => str(r.q1) === String(code),
-  })),
-  ...Object.entries(Q29_LABELS).map(([code, label]) => ({
-    id: `q29=${code}`,
-    name: `满意度=${label}`,
-    fn: (r) => str(r.q29) === String(code),
-  })),
-  ...Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
-    id: `q2_${code}=1`,
-    name: `Q2包含：${label}`,
-    fn: (r) => str(r[`q2_${code}_${findQ2ColumnSuffix(code, r)}`] || r[`q2_${code}`]) === "1" || hasQ2ByCode(r, Number(code)),
-  })),
-];
+};
 
 let rawRows = [];
 let analysisRows = [];
@@ -149,6 +117,7 @@ let lastUploadAt = "";
 let lastImportStats = null;
 let sampleStats = { total: 0, terminateExcluded: 0, invalidExcluded: 0, final: 0 };
 let currentRules = { ...DEFAULT_RULES };
+let singleConfig = JSON.parse(JSON.stringify(DEFAULT_SINGLE_CONFIG));
 let appStarted = false;
 
 function unlockApp() {
@@ -333,6 +302,90 @@ function loadRules(headers = []) {
 
 function saveRules() {
   localStorage.setItem(RULES_KEY, JSON.stringify(currentRules));
+}
+
+function mergeSingleConfig(base, incoming) {
+  const out = JSON.parse(JSON.stringify(base));
+  for (const [q, cfg] of Object.entries(incoming || {})) {
+    if (!cfg || typeof cfg !== "object") continue;
+    const title = str(cfg.title || out[q]?.title || q);
+    const labels = {};
+    for (const [k, v] of Object.entries(cfg.labels || {})) {
+      if (str(k) === "" || str(v) === "") continue;
+      labels[String(k)] = String(v);
+    }
+    out[q] = { title, labels };
+  }
+  return out;
+}
+
+function loadSingleConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SINGLE_CONFIG_KEY) || "{}");
+    singleConfig = mergeSingleConfig(DEFAULT_SINGLE_CONFIG, parsed);
+  } catch {
+    singleConfig = JSON.parse(JSON.stringify(DEFAULT_SINGLE_CONFIG));
+  }
+}
+
+function saveSingleConfig() {
+  localStorage.setItem(SINGLE_CONFIG_KEY, JSON.stringify(singleConfig));
+}
+
+function getSingleLabels(qid) {
+  return (singleConfig[qid] && singleConfig[qid].labels) || {};
+}
+
+function getSingleTitle(qid, fallback = qid) {
+  return (singleConfig[qid] && singleConfig[qid].title) || fallback;
+}
+
+function getAnalysisQuestions() {
+  return [
+    { id: "q4", name: "Q4 整体第一心智", type: "rank_top1", prefix: "q4", labels: CHANNELS },
+    { id: "q3", name: "Q3 整体渠道渗透", type: "multi", prefix: "q3", labels: CHANNELS },
+    { id: "q2", name: "Q2 内容心智", type: "multi", prefix: "q2", labels: Q2_CATEGORIES },
+    { id: "q29", name: getSingleTitle("q29", "Q29"), type: "single", col: "q29", labels: getSingleLabels("q29") },
+    { id: "q27", name: getSingleTitle("q27", "Q27"), type: "single", col: "q27", labels: getSingleLabels("q27") },
+  ];
+}
+
+function getAttrQuestions() {
+  return [
+    { id: "q34", name: getSingleTitle("q34", "Q34"), col: "q34", labels: getSingleLabels("q34") },
+    { id: "q1", name: getSingleTitle("q1", "Q1"), col: "q1", labels: getSingleLabels("q1") },
+    { id: "q27", name: getSingleTitle("q27", "Q27"), col: "q27", labels: getSingleLabels("q27") },
+    { id: "q33", name: getSingleTitle("q33", "Q33"), col: "q33", labels: getSingleLabels("q33") },
+  ];
+}
+
+function getFilterOptions() {
+  const q34Labels = getSingleLabels("q34");
+  const q1Labels = getSingleLabels("q1");
+  const q29Labels = getSingleLabels("q29");
+  return [
+    { id: "all", name: "不过滤", fn: () => true },
+    ...Object.entries(q34Labels).map(([code, label]) => ({
+      id: `q34=${code}`,
+      name: `${getSingleTitle("q34", "Q34")}=${label}`,
+      fn: (r) => str(r.q34) === String(code),
+    })),
+    ...Object.entries(q1Labels).map(([code, label]) => ({
+      id: `q1=${code}`,
+      name: `${getSingleTitle("q1", "Q1")}=${label}`,
+      fn: (r) => str(r.q1) === String(code),
+    })),
+    ...Object.entries(q29Labels).map(([code, label]) => ({
+      id: `q29=${code}`,
+      name: `${getSingleTitle("q29", "Q29")}=${label}`,
+      fn: (r) => str(r.q29) === String(code),
+    })),
+    ...Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
+      id: `q2_${code}=1`,
+      name: `Q2包含：${label}`,
+      fn: (r) => str(r[`q2_${code}_${findQ2ColumnSuffix(code, r)}`] || r[`q2_${code}`]) === "1" || hasQ2ByCode(r, Number(code)),
+    })),
+  ];
 }
 
 function applySampleRules(rows) {
@@ -582,14 +635,15 @@ function setSelectOptions(selectId, options) {
 }
 
 function getSelectedFilterDefs() {
+  const filterOptions = getFilterOptions();
   const node = document.getElementById("analysisFilter");
   const selected = [...node.selectedOptions].map((x) => x.value);
   if (!selected.length || (selected.length === 1 && selected[0] === "all")) {
-    return [FILTER_OPTIONS[0]];
+    return [filterOptions[0]];
   }
   return selected
     .filter((id) => id !== "all")
-    .map((id) => FILTER_OPTIONS.find((x) => x.id === id))
+    .map((id) => filterOptions.find((x) => x.id === id))
     .filter(Boolean);
 }
 
@@ -625,11 +679,13 @@ function exportCrossTableCsv() {
 }
 
 function renderCross() {
+  const analysisQuestions = getAnalysisQuestions();
+  const attrQuestions = getAttrQuestions();
   const qId = document.getElementById("analysisQuestion").value;
   const attrId = document.getElementById("analysisAttr").value;
 
-  const qDef = ANALYSIS_QUESTIONS.find((x) => x.id === qId) || ANALYSIS_QUESTIONS[0];
-  const attrDef = ATTR_QUESTIONS.find((x) => x.id === attrId) || ATTR_QUESTIONS[0];
+  const qDef = analysisQuestions.find((x) => x.id === qId) || analysisQuestions[0];
+  const attrDef = attrQuestions.find((x) => x.id === attrId) || attrQuestions[0];
   const filterDefs = getSelectedFilterDefs();
 
   const filtered = analysisRows.filter((r) => filterDefs.every((f) => f.fn(r)));
@@ -685,6 +741,97 @@ function renderUploadMeta() {
     `废样本：${lastImportStats.invalidExcluded}`,
     `最终分析样本：${lastImportStats.analysisRows}`,
   ].join("<br/>");
+}
+
+function parseOptionLines(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  const labels = {};
+  for (const line of lines) {
+    const raw = line.trim();
+    if (!raw) continue;
+    const idx = raw.indexOf("=");
+    if (idx <= 0) continue;
+    const code = raw.slice(0, idx).trim();
+    const label = raw.slice(idx + 1).trim();
+    if (!code || !label) continue;
+    labels[code] = label;
+  }
+  return labels;
+}
+
+function toOptionLines(labels) {
+  return Object.entries(labels || {})
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("\n");
+}
+
+function renderSingleConfigPanel() {
+  const fieldSelect = document.getElementById("singleConfigField");
+  const titleInput = document.getElementById("singleConfigTitle");
+  const optionsInput = document.getElementById("singleConfigOptions");
+  const preview = document.getElementById("singleConfigPreview");
+  if (!fieldSelect || !titleInput || !optionsInput || !preview) return;
+
+  const headerCandidates = getHeaders().filter((h) => /^q\d+$/.test(h));
+  const singleKeys = Array.from(new Set([...Object.keys(singleConfig), ...headerCandidates]))
+    .sort((a, b) => Number(a.replace("q", "")) - Number(b.replace("q", "")));
+
+  const prev = fieldSelect.value;
+  setSelectOptionsWithRaw("singleConfigField", singleKeys);
+  if (prev && singleKeys.includes(prev)) fieldSelect.value = prev;
+  if (!fieldSelect.value && singleKeys.length) fieldSelect.value = singleKeys[0];
+  const key = fieldSelect.value;
+  const cfg = singleConfig[key] || { title: key, labels: {} };
+  titleInput.value = cfg.title || key;
+  optionsInput.value = toOptionLines(cfg.labels);
+
+  preview.innerHTML = singleKeys
+    .map((k) => `${k}：${(singleConfig[k]?.title || k)}（${Object.keys(singleConfig[k]?.labels || {}).length}项）`)
+    .join("<br/>");
+}
+
+function bindSingleConfigEditor() {
+  const fieldSelect = document.getElementById("singleConfigField");
+  const titleInput = document.getElementById("singleConfigTitle");
+  const optionsInput = document.getElementById("singleConfigOptions");
+  const saveBtn = document.getElementById("btnSaveSingleConfig");
+  if (!fieldSelect || !titleInput || !optionsInput || !saveBtn) return;
+
+  fieldSelect.addEventListener("change", renderSingleConfigPanel);
+  saveBtn.addEventListener("click", () => {
+    const qid = fieldSelect.value;
+    if (!qid) return;
+    const labels = parseOptionLines(optionsInput.value);
+    if (!Object.keys(labels).length) {
+      alert("选项配置不能为空，至少填写一行：编码=文案");
+      return;
+    }
+    singleConfig[qid] = {
+      title: str(titleInput.value) || qid,
+      labels,
+    };
+    saveSingleConfig();
+    renderSingleConfigPanel();
+
+    const currentQ = document.getElementById("analysisQuestion").value;
+    const currentA = document.getElementById("analysisAttr").value;
+    const currentFilter = [...document.getElementById("analysisFilter").selectedOptions].map((x) => x.value);
+    setSelectOptions("analysisQuestion", getAnalysisQuestions().map((x) => ({ id: x.id, name: x.name })));
+    setSelectOptions("analysisAttr", getAttrQuestions().map((x) => ({ id: x.id, name: x.name })));
+    setSelectOptions("analysisFilter", getFilterOptions().map((x) => ({ id: x.id, name: x.name })));
+    if (currentQ) document.getElementById("analysisQuestion").value = currentQ;
+    if (currentA) document.getElementById("analysisAttr").value = currentA;
+    const filterNode = document.getElementById("analysisFilter");
+    [...filterNode.options].forEach((o) => {
+      o.selected = currentFilter.includes(o.value);
+    });
+    if (![...filterNode.selectedOptions].length && filterNode.options.length) {
+      filterNode.options[0].selected = true;
+    }
+    renderCross();
+    alert("单选题配置已保存");
+  });
 }
 
 function setSelectOptionsWithRaw(selectId, values) {
@@ -940,6 +1087,7 @@ function renderAll() {
   renderUploadMeta();
   renderOverview();
   renderRulesPanel();
+  renderSingleConfigPanel();
   if (document.getElementById("panel-cross").classList.contains("active")) {
     renderCross();
   }
@@ -948,12 +1096,13 @@ function renderAll() {
 async function bootstrap() {
   await loadLocal();
   rawRows = dedupRows(rawRows);
+  loadSingleConfig();
   loadRules(getHeaders());
   recomputeAnalysisRows();
 
-  setSelectOptions("analysisQuestion", ANALYSIS_QUESTIONS.map((x) => ({ id: x.id, name: x.name })));
-  setSelectOptions("analysisAttr", ATTR_QUESTIONS.map((x) => ({ id: x.id, name: x.name })));
-  setSelectOptions("analysisFilter", FILTER_OPTIONS.map((x) => ({ id: x.id, name: x.name })));
+  setSelectOptions("analysisQuestion", getAnalysisQuestions().map((x) => ({ id: x.id, name: x.name })));
+  setSelectOptions("analysisAttr", getAttrQuestions().map((x) => ({ id: x.id, name: x.name })));
+  setSelectOptions("analysisFilter", getFilterOptions().map((x) => ({ id: x.id, name: x.name })));
   const filterNode = document.getElementById("analysisFilter");
   if (filterNode && filterNode.options.length) {
     filterNode.options[0].selected = true;
@@ -961,6 +1110,7 @@ async function bootstrap() {
 
   bindTabs();
   bindActions();
+  bindSingleConfigEditor();
   setImportProgress(0, "未开始导入");
   renderAll();
 }

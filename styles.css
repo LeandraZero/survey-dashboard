@@ -217,6 +217,15 @@ input[type="password"] {
   min-height: 40px;
 }
 
+textarea {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 9px;
+  font: inherit;
+  width: 100%;
+}
+
 .field-tip {
   font-size: 11px;
   color: #7a8798;

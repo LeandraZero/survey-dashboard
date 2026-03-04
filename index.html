@@ -161,6 +161,29 @@
           <button id="btnResetRules" class="ghost">恢复默认规则</button>
         </div>
         <div class="upload-log" id="ruleStats"></div>
+
+        <div class="chart-card" style="margin-top: 12px;">
+          <h3>单选题题目与选项赋值</h3>
+          <p class="hint">用于维护单选题题目名称与选项文案。格式：每行 `编码=文案`，例如 `1=男`。</p>
+          <div class="rules-grid">
+            <label>
+              单选题字段
+              <select id="singleConfigField"></select>
+            </label>
+            <label>
+              题目名称
+              <input id="singleConfigTitle" type="text" placeholder="例如 Q34 性别" />
+            </label>
+          </div>
+          <label style="margin-top: 10px;">
+            选项配置
+            <textarea id="singleConfigOptions" rows="8" placeholder="1=选项A&#10;2=选项B"></textarea>
+          </label>
+          <div class="upload-actions">
+            <button id="btnSaveSingleConfig">保存单选配置</button>
+          </div>
+          <div class="upload-log" id="singleConfigPreview"></div>
+        </div>
       </section>
 
       <section class="panel" id="panel-upload">
