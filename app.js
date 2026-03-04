@@ -741,6 +741,8 @@ function bindChartWindowResize() {
 }
 
 function renderOverview() {
+  const hintNode = document.getElementById("overviewHint");
+  if (hintNode) hintNode.textContent = `数据更新至 ${fmtTime(lastUploadAt)}`;
   const sampleNode = document.getElementById("overviewSampleLine");
   if (sampleNode) sampleNode.textContent = `总样本：${analysisRows.length}`;
 
