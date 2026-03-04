@@ -794,7 +794,7 @@ async function readFileRows(file) {
   const buf = await file.arrayBuffer();
 
   if (ext === "csv") {
-    const text = new TextDecoder("utf-8").decode(buf);
+    const text = decodeCsvText(buf);
     const wb = XLSX.read(text, { type: "string" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     return XLSX.utils.sheet_to_json(sheet, { defval: "" });
@@ -803,6 +803,25 @@ async function readFileRows(file) {
   const wb = XLSX.read(buf, { type: "array" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   return XLSX.utils.sheet_to_json(sheet, { defval: "" });
+}
+
+function decodeCsvText(buf) {
+  const tryDecode = (encoding) => {
+    try {
+      const text = new TextDecoder(encoding).decode(buf);
+      // 评分：替换符越少越好；中文常见乱码片段越少越好
+      const badCharCount = (text.match(/\uFFFD/g) || []).length;
+      const mojibakeCount = (text.match(/[ÃÕÐÂË¼]/g) || []).length;
+      const score = badCharCount * 5 + mojibakeCount;
+      return { encoding, text, score };
+    } catch {
+      return { encoding, text: "", score: Number.MAX_SAFE_INTEGER };
+    }
+  };
+
+  const utf8 = tryDecode("utf-8");
+  const gb18030 = tryDecode("gb18030");
+  return utf8.score <= gb18030.score ? utf8.text : gb18030.text;
 }
 
 async function importFiles() {
