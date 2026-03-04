@@ -740,6 +740,20 @@ function bindChartWindowResize() {
   });
 }
 
+function topRankLinesHtml(sortedItems, limit = 3) {
+  return sortedItems
+    .slice(0, limit)
+    .map(
+      (x, idx) => `
+      <div class="scene-line top-rank-line">
+        <span class="top-rank-label" data-rank="${idx + 1}">Top${idx + 1}：</span>
+        <strong>${x ? x.name : "--"}</strong>
+        <strong class="top1-value">${x ? fmtPct(x.ratio) : "--"}</strong>
+      </div>`,
+    )
+    .join("");
+}
+
 function renderOverview() {
   const hintNode = document.getElementById("overviewHint");
   if (hintNode) hintNode.textContent = `数据更新至 ${fmtTime(lastUploadAt)}`;
@@ -748,14 +762,20 @@ function renderOverview() {
 
   const top1 = calcRankTop1(analysisRows, "q4", CHANNELS);
   const sortedTop1 = [...top1.items].sort((a, b) => b.ratio - a.ratio);
-  const best = sortedTop1[0];
-  document.getElementById("ovOverallTop1").textContent = best ? best.name : "--";
-  document.getElementById("ovOverallTop1Ratio").textContent = best ? fmtPct(best.ratio) : "--";
-
+  const rankNode = document.getElementById("ovOverallTopRanks");
+  if (rankNode) rankNode.innerHTML = topRankLinesHtml(sortedTop1, 3);
   const mys = sortedTop1.find((x) => x.name === "米游社");
   const rank = sortedTop1.findIndex((x) => x.name === "米游社");
-  document.getElementById("ovOverallMysLabel").textContent = rank >= 0 ? `Top${rank + 1}：米游社` : "TopX：米游社";
-  document.getElementById("ovOverallMysRatio").textContent = mys ? fmtPct(mys.ratio) : "--";
+  const mysExtraNode = document.getElementById("ovOverallMysExtra");
+  if (mysExtraNode) {
+    if (rank > 2 && mys) {
+      mysExtraNode.style.display = "";
+      mysExtraNode.innerHTML = `<span class="top-rank-label">Top${rank + 1}：米游社</span><strong class="top1-value">${fmtPct(mys.ratio)}</strong>`;
+    } else {
+      mysExtraNode.style.display = "none";
+      mysExtraNode.textContent = "";
+    }
+  }
 
   drawBarChart("chartTop1", top1.items, "Top1 渠道占比");
   renderOverviewSceneGrid();
@@ -769,13 +789,12 @@ function renderOverviewSceneGrid() {
   const sceneData = OVERVIEW_SCENES.map((scene) => {
     const top1 = calcRankTop1(analysisRows, scene.rank, CHANNELS);
     const top1Sorted = [...top1.items].sort((a, b) => b.ratio - a.ratio);
-    const best = top1Sorted[0];
     const mysRank = top1Sorted.findIndex((x) => x.name === "米游社");
     const mys = top1Sorted.find((x) => x.name === "米游社");
     const channels = calcRankPresence(analysisRows, scene.rank, CHANNELS).items.sort((a, b) => b.ratio - a.ratio);
     return {
       ...scene,
-      best,
+      top3: top1Sorted.slice(0, 3),
       mysRank,
       mys,
       channels,
@@ -787,8 +806,8 @@ function renderOverviewSceneGrid() {
       (s, i) => `
       <article class="scene-card" data-scene-index="${i}">
         <div class="scene-title">${s.name}</div>
-        <div class="scene-line top1-line"><span class="top1-label">Top1：</span><strong>${s.best ? s.best.name : "--"}</strong> <strong class="top1-value">${s.best ? fmtPct(s.best.ratio) : "--"}</strong></div>
-        <div class="scene-line">${s.mysRank >= 0 ? `Top${s.mysRank + 1}` : "TopX"}：米游社 ${s.mys ? fmtPct(s.mys.ratio) : "--"}</div>
+        ${topRankLinesHtml(s.top3, 3)}
+        ${s.mys && s.mysRank > 2 ? `<div class="scene-line"><span class="top-rank-label">Top${s.mysRank + 1}：米游社</span><strong class="top1-value">${fmtPct(s.mys.ratio)}</strong></div>` : ""}
       </article>`,
     )
     .join("");

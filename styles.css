@@ -218,12 +218,15 @@ h3 { font-size: 16px; }
   font-size: 20px;
 }
 
-.top1-line {
+.top1-line,
+.top-rank-line {
   font-weight: 700;
 }
 
 .overview-left .top1-line,
-.overview-left .top1-line strong {
+.overview-left .top1-line strong,
+.overview-left .top-rank-line,
+.overview-left .top-rank-line strong {
   font-size: 18px;
 }
 
@@ -231,15 +234,29 @@ h3 { font-size: 16px; }
   margin-left: 12px;
 }
 
-.top1-label {
+.top-rank-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-weight: 700;
 }
 
-.top1-label::before {
+.top-rank-label[data-rank="1"]::before {
   content: "🥇";
+  font-size: 13px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.top-rank-label[data-rank="2"]::before {
+  content: "🥈";
+  font-size: 13px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.top-rank-label[data-rank="3"]::before {
+  content: "🥉";
   font-size: 13px;
   line-height: 1;
   flex: 0 0 auto;

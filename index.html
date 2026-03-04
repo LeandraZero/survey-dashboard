@@ -49,10 +49,10 @@
 
         <div class="overview-layout">
           <div class="overview-left">
-            <h3 class="overview-section-title">整体讨论心智Top1（%）</h3>
+            <h3 class="overview-section-title">整体讨论心智Top3（%）</h3>
             <article class="chart-card">
-              <p class="overview-metric top1-line"><span class="top1-label">Top1：</span><strong id="ovOverallTop1">--</strong> <strong id="ovOverallTop1Ratio" class="top1-value">--</strong></p>
-              <p class="overview-metric"><span id="ovOverallMysLabel">TopX：米游社</span> <span id="ovOverallMysRatio">--</span></p>
+              <div id="ovOverallTopRanks"></div>
+              <p class="overview-metric" id="ovOverallMysExtra" style="display:none;"></p>
             </article>
             <article class="chart-card">
               <h3>首选Top1渠道（%）</h3>
@@ -60,7 +60,7 @@
             </article>
           </div>
           <div class="overview-right">
-            <h3 class="overview-section-title">各垂类心智Top1（%）</h3>
+            <h3 class="overview-section-title">各垂类心智Top3（%）</h3>
             <div class="scene-grid" id="sceneGrid"></div>
             <div class="scene-tooltip" id="sceneTooltip"></div>
           </div>
