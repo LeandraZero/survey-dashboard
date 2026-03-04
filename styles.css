@@ -173,6 +173,7 @@ h3 { font-size: 16px; }
 
 .overview-title {
   margin: 0;
+  font-size: 24px;
 }
 
 .overview-meta {
@@ -217,6 +218,27 @@ h3 { font-size: 16px; }
   font-size: 20px;
 }
 
+.top1-line {
+  font-weight: 700;
+}
+
+.top1-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.top1-label::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #8c9aeb;
+  box-shadow: 0 0 0 2px rgba(140, 154, 235, 0.25);
+  flex: 0 0 auto;
+}
+
 .scene-grid {
   flex: 1 1 auto;
   width: 100%;
@@ -244,14 +266,14 @@ h3 { font-size: 16px; }
 }
 
 .scene-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .scene-line {
   margin: 2px 0;
-  font-size: 12px;
+  font-size: 14px;
   color: #334155;
 }
 

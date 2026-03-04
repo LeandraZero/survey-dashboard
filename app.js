@@ -787,7 +787,7 @@ function renderOverviewSceneGrid() {
       (s, i) => `
       <article class="scene-card" data-scene-index="${i}">
         <div class="scene-title">${s.name}</div>
-        <div class="scene-line">Top1：<strong>${s.best ? s.best.name : "--"}</strong> ${s.best ? fmtPct(s.best.ratio) : "--"}</div>
+        <div class="scene-line top1-line"><span class="top1-label">Top1：</span><strong>${s.best ? s.best.name : "--"}</strong> <strong>${s.best ? fmtPct(s.best.ratio) : "--"}</strong></div>
         <div class="scene-line">${s.mysRank >= 0 ? `Top${s.mysRank + 1}` : "TopX"}：米游社 ${s.mys ? fmtPct(s.mys.ratio) : "--"}</div>
       </article>`,
     )
