@@ -74,7 +74,7 @@ body {
 }
 
 .sidebar {
-  background: linear-gradient(165deg, #0e2d67, #092e73);
+  background: #092e73;
   color: #f2f8ff;
   padding: 20px 14px;
   display: flex;
@@ -168,42 +168,21 @@ h3 { font-size: 16px; }
   gap: 12px;
 }
 
-.overview-sample-line {
-  margin-top: 0;
-  margin-bottom: 0;
-  font-weight: 600;
-}
-
-.overview-update-line {
-  margin-top: 2px;
-  margin-bottom: 0;
-}
-
 .overview-head {
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) auto;
-  grid-template-rows: auto auto;
-  gap: 8px 16px;
-  align-items: end;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .overview-title {
   margin: 0;
 }
 
-.overview-head-spacer {
-  min-height: 1px;
-}
-
-.overview-subtitle {
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
-}
-
 .overview-meta {
   margin-bottom: 10px;
+}
+
+.overview-meta-line {
+  margin: 0;
+  font-weight: 600;
 }
 
 .overview-layout {
@@ -677,12 +656,7 @@ th {
   }
 
   .overview-head {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-  }
-
-  .overview-head-spacer {
-    display: none;
+    margin-bottom: 6px;
   }
 
   .scene-grid {
