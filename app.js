@@ -643,10 +643,11 @@ function getQuestionDistribution(rows, def) {
   return calcSingle(rows, def.col, def.labels);
 }
 
-function drawBarChart(elId, rows, title) {
+function drawBarChart(elId, rows, title, opts = {}) {
   const node = document.getElementById(elId);
   if (!node) return;
-  const sorted = [...rows].sort((a, b) => b.ratio - a.ratio);
+  const preserveOrder = !!opts.preserveOrder;
+  const sorted = preserveOrder ? [...rows] : [...rows].sort((a, b) => b.ratio - a.ratio);
 
   if (!window.echarts) {
     node.innerHTML = sorted
@@ -712,7 +713,7 @@ function renderOverview() {
   document.getElementById("kpiSatDetail").textContent = `满意（非常+比较）${satPositive}/${sat.denominator}`;
 
   drawBarChart("chartTop1", top1.items, "Top1 渠道占比");
-  drawBarChart("chartSat", sat.items, "满意度占比");
+  drawBarChart("chartSat", sat.items, "满意度占比", { preserveOrder: true });
 }
 
 function setSelectOptions(selectId, options) {
@@ -800,7 +801,9 @@ function renderCross() {
 
   const filtered = applyGroupedFilters(analysisRows, filterDefs);
   const overall = getQuestionDistribution(filtered, qDef);
-  drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${filtered.length}）`);
+  drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${filtered.length}）`, {
+    preserveOrder: qDef.id === "q29",
+  });
 
   const sortedCols = [...overall.items].sort((a, b) => b.ratio - a.ratio);
   const thead = document.querySelector("#crossTable thead");
