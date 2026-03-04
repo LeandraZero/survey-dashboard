@@ -741,8 +741,8 @@ function bindChartWindowResize() {
 }
 
 function renderOverview() {
-  document.getElementById("overviewHint").textContent = `数据更新至 ${fmtTime(lastUploadAt)}`;
-  document.getElementById("overviewSampleLine").textContent = `总样本：${analysisRows.length}`;
+  const sampleNode = document.getElementById("overviewSampleLine");
+  if (sampleNode) sampleNode.textContent = `总样本：${analysisRows.length}`;
 
   const top1 = calcRankTop1(analysisRows, "q4", CHANNELS);
   const sortedTop1 = [...top1.items].sort((a, b) => b.ratio - a.ratio);
