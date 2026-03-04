@@ -9,6 +9,7 @@ const DB_VERSION = 1;
 const STORE_NAME = "kv";
 const RAW_ROWS_KEY = "survey_raw_rows_v1";
 const BAR_COLOR = "#8C9AEB";
+const chartResizeObservers = new WeakMap();
 const DEFAULT_RULES = {
   terminateField: "",
   terminateValue: "1",
@@ -677,15 +678,16 @@ function drawBarChart(elId, rows, title, opts = {}) {
   const chart = echarts.getInstanceByDom(node) || echarts.init(node);
   chart.clear();
   chart.setOption({
+    color: [BAR_COLOR],
     title: { text: title, textStyle: { fontSize: 13, fontWeight: 500 } },
     tooltip: {
       trigger: "item",
-      formatter: (p) => `${p.name}<br/>样本量: ${p.data.count}`,
+      formatter: (p) => `${p.name}<br/>样本量: ${p.data.count}<br/>占比: ${Number(p.data.value).toFixed(1)}%`,
     },
-    grid: { left: 110, right: 20, top: 40, bottom: 20 },
+    grid: { left: 120, right: 20, top: 40, bottom: 20, containLabel: true },
     xAxis: {
       type: "value",
-      axisLabel: { formatter: (v) => `${v}%` },
+      axisLabel: { formatter: (v) => `${Number(v).toFixed(1)}%` },
     },
     yAxis: {
       type: "category",
@@ -695,14 +697,25 @@ function drawBarChart(elId, rows, title, opts = {}) {
     series: [
       {
         type: "bar",
-        data: sorted.map((x) => ({ value: +(x.ratio * 100).toFixed(2), count: x.count })),
+        data: sorted.map((x) => ({ value: +(x.ratio * 100).toFixed(1), count: x.count })),
         itemStyle: { color: BAR_COLOR },
-        label: { show: true, position: "right", formatter: (p) => `${p.value}%` },
+        label: { show: true, position: "right", formatter: (p) => `${Number(p.value).toFixed(1)}%` },
       },
     ],
   });
-  // 防止在隐藏面板初始化时出现 0 宽高导致空白
+  bindChartAutoResize(node, chart);
   requestAnimationFrame(() => chart.resize());
+}
+
+function bindChartAutoResize(node, chart) {
+  if (chartResizeObservers.has(node)) return;
+  const container = node.closest(".chart-card") || node.parentElement || node;
+  if (!container || typeof ResizeObserver === "undefined") return;
+  const observer = new ResizeObserver(() => {
+    requestAnimationFrame(() => chart.resize());
+  });
+  observer.observe(container);
+  chartResizeObservers.set(node, observer);
 }
 
 function renderOverview() {
