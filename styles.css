@@ -121,9 +121,9 @@ body {
   transition: all 0.18s ease;
 }
 
-.tab:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: #1e4083;
+.tab:not(.active):hover {
+  background: #0d224b;
+  color: #0d224b;
 }
 
 .tab.active {
