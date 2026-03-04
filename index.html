@@ -169,6 +169,10 @@
 
         <div class="upload-box">
           <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple />
+          <label class="rule-inline" style="margin-top: 8px;">
+            <input id="appendMode" type="checkbox" />
+            追加导入（不勾选则覆盖现有数据）
+          </label>
           <div class="upload-actions">
             <button id="btnImport">导入文件</button>
             <button id="btnClear" class="ghost">清空本地数据</button>

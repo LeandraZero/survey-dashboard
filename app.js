@@ -676,6 +676,7 @@ function renderUploadMeta() {
     return;
   }
   statsNode.innerHTML = [
+    `导入模式：${lastImportStats.mode === "append" ? "追加" : "覆盖"}`,
     `导入文件数：${lastImportStats.files}`,
     `读取总行数：${lastImportStats.readRows}`,
     `去重后总样本：${lastImportStats.dedupRows}`,
@@ -806,13 +807,14 @@ async function readFileRows(file) {
 
 async function importFiles() {
   const files = [...document.getElementById("fileInput").files];
+  const appendMode = !!document.getElementById("appendMode")?.checked;
   if (!files.length) {
     alert("请先选择文件");
     return;
   }
 
   setImportProgress(0, "开始读取文件...");
-  let merged = [...rawRows];
+  let merged = appendMode ? [...rawRows] : [];
   let readRows = 0;
   for (let i = 0; i < files.length; i += 1) {
     const file = files[i];
@@ -834,6 +836,7 @@ async function importFiles() {
     terminateExcluded: sampleStats.terminateExcluded,
     invalidExcluded: sampleStats.invalidExcluded,
     analysisRows: analysisRows.length,
+    mode: appendMode ? "append" : "replace",
   };
   setImportProgress(100, "导入完成");
   renderAll();
