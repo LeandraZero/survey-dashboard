@@ -1346,11 +1346,13 @@ function getOpenConfigEntries() {
 function renderWordcloudPanel() {
   const fieldNode = document.getElementById("wordcloudField");
   const minNode = document.getElementById("wordcloudMinFreq");
+  const minLenNode = document.getElementById("wordcloudMinLen");
+  const maxLenNode = document.getElementById("wordcloudMaxLen");
   const stopNode = document.getElementById("wordcloudStopwords");
   const topNode = document.getElementById("wordcloudTopWords");
   const chartNode = document.getElementById("chartWordcloud");
   const detailTbody = document.querySelector("#wordcloudDetailTable tbody");
-  if (!fieldNode || !minNode || !stopNode || !topNode || !chartNode) return;
+  if (!fieldNode || !minNode || !minLenNode || !maxLenNode || !stopNode || !topNode || !chartNode) return;
 
   const entries = getOpenConfigEntries();
   const prevSelected = [...fieldNode.selectedOptions].map((o) => o.value);
@@ -1368,6 +1370,15 @@ function renderWordcloudPanel() {
   }
 
   const minFreq = Math.max(1, Number(minNode.value || 2));
+  let minLen = Math.max(1, Number(minLenNode.value || 2));
+  let maxLen = Math.max(1, Number(maxLenNode.value || 8));
+  if (maxLen < minLen) {
+    const t = maxLen;
+    maxLen = minLen;
+    minLen = t;
+    minLenNode.value = String(minLen);
+    maxLenNode.value = String(maxLen);
+  }
   const stopwords = splitStopwords(stopNode.value);
 
   const counter = new Map();
@@ -1381,7 +1392,7 @@ function renderWordcloudPanel() {
       for (const w0 of words) {
         const w = w0.trim();
         if (!w) continue;
-        if (w.length < 2) continue;
+        if (w.length < minLen || w.length > maxLen) continue;
         if (/^\d+$/.test(w)) continue;
         if (stopwords.has(w)) continue;
         counter.set(w, (counter.get(w) || 0) + 1);
@@ -1407,6 +1418,7 @@ function renderWordcloudPanel() {
   topNode.innerHTML = [
     `题目：${fieldNames}`,
     `样本量：${sourceCount}`,
+    `词长范围：${minLen}-${maxLen}字`,
     `词数：${words.length}`,
     `Top20：${words.slice(0, 20).map((x) => `${x.name}(${x.value})`).join("、")}`,
   ].join("<br/>");
@@ -1492,6 +1504,8 @@ async function bootstrap() {
   bindSingleConfigEditor();
   bindOpenConfigEditor();
   setImportProgress(0, "未开始导入");
+  document.getElementById("wordcloudMinLen").value = "2";
+  document.getElementById("wordcloudMaxLen").value = "8";
   document.getElementById("wordcloudStopwords").value = "原神 米游社 感觉 觉得 就是 一个 可以 还是 这个 那个";
   renderAll();
 }
