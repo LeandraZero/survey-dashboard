@@ -1240,6 +1240,10 @@ function bindTabs() {
       setTimeout(renderCross, 80);
     }
     if (tab === "rules") renderRulesPanel();
+    if (tab === "wordcloud") {
+      renderWordcloudPanel();
+      setTimeout(renderWordcloudPanel, 80);
+    }
   });
 }
 
@@ -1261,6 +1265,7 @@ function bindActions() {
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
   document.getElementById("btnSaveRules").addEventListener("click", saveRulesFromPanel);
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
+  document.getElementById("btnGenerateWordcloud").addEventListener("click", renderWordcloudPanel);
 }
 
 function renderAll() {
@@ -1272,6 +1277,135 @@ function renderAll() {
   if (document.getElementById("panel-cross").classList.contains("active")) {
     renderCross();
   }
+  if (document.getElementById("panel-wordcloud").classList.contains("active")) {
+    renderWordcloudPanel();
+  }
+}
+
+function splitStopwords(text) {
+  return new Set(
+    String(text || "")
+      .split(/[\s,，、;；]+/)
+      .map((x) => x.trim())
+      .filter(Boolean),
+  );
+}
+
+function tokenizeZh(text) {
+  const t = String(text || "").trim();
+  if (!t) return [];
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    const seg = new Intl.Segmenter("zh", { granularity: "word" });
+    return [...seg.segment(t)]
+      .map((x) => x.segment.trim())
+      .filter(Boolean);
+  }
+  // Fallback: 按中文连续串和英文词拆分
+  return (t.match(/[\u4e00-\u9fff]{1,}|[A-Za-z0-9_]+/g) || []).map((x) => x.trim()).filter(Boolean);
+}
+
+function getOpenConfigEntries() {
+  return Object.entries(openConfig)
+    .filter(([k]) => k)
+    .sort((a, b) => {
+      const na = Number(a[0].replace(/\D/g, "")) || 0;
+      const nb = Number(b[0].replace(/\D/g, "")) || 0;
+      return na - nb;
+    });
+}
+
+function renderWordcloudPanel() {
+  const fieldNode = document.getElementById("wordcloudField");
+  const minNode = document.getElementById("wordcloudMinFreq");
+  const stopNode = document.getElementById("wordcloudStopwords");
+  const topNode = document.getElementById("wordcloudTopWords");
+  const chartNode = document.getElementById("chartWordcloud");
+  if (!fieldNode || !minNode || !stopNode || !topNode || !chartNode) return;
+
+  const entries = getOpenConfigEntries();
+  setSelectOptions("wordcloudField", entries.map(([k, v]) => ({ id: k, name: `${k} ${v}` })));
+  if (!fieldNode.value && entries.length) fieldNode.value = entries[0][0];
+  const field = fieldNode.value;
+  if (!field) {
+    topNode.innerHTML = "请先在规则配置中维护开放题字段。";
+    chartNode.innerHTML = "";
+    return;
+  }
+
+  const minFreq = Math.max(1, Number(minNode.value || 2));
+  const stopwords = splitStopwords(stopNode.value);
+
+  const counter = new Map();
+  let sourceCount = 0;
+  for (const row of analysisRows) {
+    const raw = str(row[field]);
+    if (!raw) continue;
+    sourceCount += 1;
+    const words = tokenizeZh(raw);
+    for (const w0 of words) {
+      const w = w0.trim();
+      if (!w) continue;
+      if (w.length < 2) continue;
+      if (/^\d+$/.test(w)) continue;
+      if (stopwords.has(w)) continue;
+      counter.set(w, (counter.get(w) || 0) + 1);
+    }
+  }
+
+  const words = [...counter.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .filter((x) => x.value >= minFreq)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 180);
+
+  if (!words.length) {
+    topNode.innerHTML = `题目：${field}（${openConfig[field] || field}）<br/>无可展示词汇，请降低最小词频或减少停用词。`;
+    chartNode.innerHTML = "";
+    return;
+  }
+
+  topNode.innerHTML = [
+    `题目：${field}（${openConfig[field] || field}）`,
+    `样本量：${sourceCount}`,
+    `词数：${words.length}`,
+    `Top20：${words.slice(0, 20).map((x) => `${x.name}(${x.value})`).join("、")}`,
+  ].join("<br/>");
+
+  if (!window.echarts) return;
+  const chart = echarts.getInstanceByDom(chartNode) || echarts.init(chartNode);
+  chart.clear();
+  chart.setOption({
+    tooltip: {
+      trigger: "item",
+      formatter: (p) => `${p.name}<br/>频次: ${p.value}`,
+    },
+    series: [
+      {
+        type: "wordCloud",
+        shape: "circle",
+        left: "center",
+        top: "center",
+        width: "100%",
+        height: "100%",
+        sizeRange: [12, 56],
+        rotationRange: [-45, 45],
+        gridSize: 8,
+        drawOutOfBound: false,
+        textStyle: {
+          color: () => {
+            const palette = ["#0e7490", "#2563eb", "#0f766e", "#7c3aed", "#b45309", "#be123c"];
+            return palette[Math.floor(Math.random() * palette.length)];
+          },
+        },
+        emphasis: {
+          focus: "self",
+          textStyle: { shadowBlur: 8, shadowColor: "#94a3b8" },
+        },
+        data: words,
+      },
+    ],
+  });
+  requestAnimationFrame(() => chart.resize());
 }
 
 async function bootstrap() {
@@ -1295,6 +1429,7 @@ async function bootstrap() {
   bindSingleConfigEditor();
   bindOpenConfigEditor();
   setImportProgress(0, "未开始导入");
+  document.getElementById("wordcloudStopwords").value = "原神 米游社 感觉 觉得 就是 一个 可以 还是 这个 那个";
   renderAll();
 }
 

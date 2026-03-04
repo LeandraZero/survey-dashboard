@@ -228,11 +228,11 @@ h1, h2, h3 { margin: 0 0 8px 0; }
 }
 
 .rules-single {
-  grid-column: 1 / 2;
+  grid-column: 2 / 3;
 }
 
 .rules-open {
-  grid-column: 2 / 3;
+  grid-column: 1 / 2;
 }
 
 .rules-textarea-label {
@@ -245,6 +245,10 @@ h1, h2, h3 { margin: 0 0 8px 0; }
   padding: 8px 10px;
   border-radius: 8px;
   background: #f0f8ff;
+}
+
+#panel-wordcloud .chart-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
 }
 
 .rule-inline {

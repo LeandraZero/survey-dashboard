@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2/dist/echarts-wordcloud.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -29,6 +30,7 @@
         <button class="tab active" data-tab="overview">数据总览</button>
         <button class="tab" data-tab="cross">交叉分析</button>
         <button class="tab" data-tab="rules">规则配置</button>
+        <button class="tab" data-tab="wordcloud">开放题词云</button>
         <button class="tab" data-tab="upload">数据录入</button>
       </nav>
       <div class="sidebar-foot" id="sidebarMeta"></div>
@@ -164,6 +166,25 @@
 
           <div class="upload-log rules-stats" id="ruleStats"></div>
 
+          <article class="chart-card rules-card rules-secondary rules-open">
+            <h3>开放题题目赋值</h3>
+            <p class="hint">用于维护开放题字段与题目名称映射，便于后续导出或质检查看。</p>
+            <div class="rules-grid">
+              <label>
+                开放题字段
+                <select id="openConfigField"></select>
+              </label>
+              <label>
+                题目名称
+                <input id="openConfigTitle" type="text" placeholder="例如 Q32 平台期待（开放题）" />
+              </label>
+            </div>
+            <div class="upload-actions">
+              <button id="btnSaveOpenConfig">保存开放题配置</button>
+            </div>
+            <div class="upload-log" id="openConfigPreview"></div>
+          </article>
+
           <article class="chart-card rules-card rules-secondary rules-single">
             <h3>单选题题目与选项赋值</h3>
             <p class="hint">用于维护单选题题目名称与选项文案。格式：每行 `编码=文案`，例如 `1=男`。</p>
@@ -186,25 +207,32 @@
             </div>
             <div class="upload-log" id="singleConfigPreview"></div>
           </article>
+        </div>
+      </section>
 
-          <article class="chart-card rules-card rules-secondary rules-open">
-            <h3>开放题题目赋值</h3>
-            <p class="hint">用于维护开放题字段与题目名称映射，便于后续导出或质检查看。</p>
-            <div class="rules-grid">
-              <label>
-                开放题字段
-                <select id="openConfigField"></select>
-              </label>
-              <label>
-                题目名称
-                <input id="openConfigTitle" type="text" placeholder="例如 Q32 平台期待（开放题）" />
-              </label>
-            </div>
-            <div class="upload-actions">
-              <button id="btnSaveOpenConfig">保存开放题配置</button>
-            </div>
-            <div class="upload-log" id="openConfigPreview"></div>
-          </article>
+      <section class="panel" id="panel-wordcloud">
+        <h2>开放题词云</h2>
+        <p class="hint">选择开放题字段后，基于当前分析样本生成词云。可自定义停用词和最小词频。</p>
+        <div class="chart-card">
+          <div class="rules-grid">
+            <label>
+              开放题字段
+              <select id="wordcloudField"></select>
+            </label>
+            <label>
+              最小词频
+              <input id="wordcloudMinFreq" type="number" min="1" step="1" value="2" />
+            </label>
+          </div>
+          <label class="rules-textarea-label">
+            停用词（逗号/空格/换行分隔）
+            <textarea id="wordcloudStopwords" rows="4" placeholder="比如：原神, 米游社, 觉得, 一个"></textarea>
+          </label>
+          <div class="upload-actions">
+            <button id="btnGenerateWordcloud">生成词云</button>
+          </div>
+          <div class="chart" id="chartWordcloud" style="height: 460px;"></div>
+          <div class="upload-log" id="wordcloudTopWords"></div>
         </div>
       </section>
 
