@@ -787,7 +787,7 @@ function renderOverviewSceneGrid() {
       (s, i) => `
       <article class="scene-card" data-scene-index="${i}">
         <div class="scene-title">${s.name}</div>
-        <div class="scene-line top1-line"><span class="top1-label">Top1：</span><strong>${s.best ? s.best.name : "--"}</strong> <strong>${s.best ? fmtPct(s.best.ratio) : "--"}</strong></div>
+        <div class="scene-line top1-line"><span class="top1-label">Top1：</span><strong>${s.best ? s.best.name : "--"}</strong> <strong class="top1-value">${s.best ? fmtPct(s.best.ratio) : "--"}</strong></div>
         <div class="scene-line">${s.mysRank >= 0 ? `Top${s.mysRank + 1}` : "TopX"}：米游社 ${s.mys ? fmtPct(s.mys.ratio) : "--"}</div>
       </article>`,
     )
@@ -806,8 +806,24 @@ function renderOverviewSceneGrid() {
       .join("");
     tooltip.innerHTML = `<div class="scene-tip-title">${scene.name} 渠道占比</div><div class="bar-rows bar-rows-dark">${bars}</div>`;
     tooltip.style.display = "block";
-    tooltip.style.left = `${x + 14}px`;
-    tooltip.style.top = `${y + 14}px`;
+    const margin = 12;
+    const gap = 14;
+    const tipW = tooltip.offsetWidth || 320;
+    const tipH = tooltip.offsetHeight || 240;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = x + gap;
+    let top = y + gap;
+
+    if (left + tipW + margin > vw) left = x - tipW - gap;
+    if (top + tipH + margin > vh) top = y - tipH - gap;
+
+    left = Math.max(margin, Math.min(left, vw - tipW - margin));
+    top = Math.max(margin, Math.min(top, vh - tipH - margin));
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
   };
 
   grid.querySelectorAll(".scene-card").forEach((card) => {

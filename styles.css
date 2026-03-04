@@ -222,6 +222,15 @@ h3 { font-size: 16px; }
   font-weight: 700;
 }
 
+.overview-left .top1-line,
+.overview-left .top1-line strong {
+  font-size: 18px;
+}
+
+.top1-value {
+  margin-left: 12px;
+}
+
 .top1-label {
   display: inline-flex;
   align-items: center;
@@ -230,12 +239,9 @@ h3 { font-size: 16px; }
 }
 
 .top1-label::before {
-  content: "";
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #8c9aeb;
-  box-shadow: 0 0 0 2px rgba(140, 154, 235, 0.25);
+  content: "🥇";
+  font-size: 13px;
+  line-height: 1;
   flex: 0 0 auto;
 }
 
