@@ -113,12 +113,12 @@
         </div>
       </section>
 
-      <section class="panel" id="panel-rules">
+      <section class="panel rules-page" id="panel-rules">
         <h2>规则配置</h2>
         <p class="hint">自动识别表头后，可调整终止问卷条件与废样本条件。保存后会立即重算全站数据。</p>
 
-        <div class="chart-grid">
-          <article class="chart-card">
+        <div class="rules-board">
+          <article class="chart-card rules-card rules-primary">
             <h3>表头识别</h3>
             <div class="rules-grid">
               <label>
@@ -134,10 +134,10 @@
                 <select id="ruleDurationField"></select>
               </label>
             </div>
-            <p class="hint" id="ruleAutoHint"></p>
+            <p class="hint rules-hint" id="ruleAutoHint"></p>
           </article>
 
-          <article class="chart-card">
+          <article class="chart-card rules-card rules-primary">
             <h3>废样本条件</h3>
             <div class="rules-stack">
               <label class="rule-inline">
@@ -154,54 +154,57 @@
               <span class="field-tip">可多选，按住 Cmd/Ctrl 选择多个题目</span>
             </div>
           </article>
-        </div>
 
-        <div class="upload-actions">
-          <button id="btnSaveRules">保存并重算</button>
-          <button id="btnResetRules" class="ghost">恢复默认规则</button>
-        </div>
-        <div class="upload-log" id="ruleStats"></div>
+          <div class="chart-card rules-actions-card">
+            <div class="upload-actions">
+              <button id="btnSaveRules">保存并重算</button>
+              <button id="btnResetRules" class="ghost">恢复默认规则</button>
+            </div>
+          </div>
 
-        <div class="chart-card" style="margin-top: 12px;">
-          <h3>单选题题目与选项赋值</h3>
-          <p class="hint">用于维护单选题题目名称与选项文案。格式：每行 `编码=文案`，例如 `1=男`。</p>
-          <div class="rules-grid">
-            <label>
-              单选题字段
-              <select id="singleConfigField"></select>
-            </label>
-            <label>
-              题目名称
-              <input id="singleConfigTitle" type="text" placeholder="例如 Q34 性别" />
-            </label>
-          </div>
-          <label style="margin-top: 10px;">
-            选项配置
-            <textarea id="singleConfigOptions" rows="8" placeholder="1=选项A&#10;2=选项B"></textarea>
-          </label>
-          <div class="upload-actions">
-            <button id="btnSaveSingleConfig">保存单选配置</button>
-          </div>
-          <div class="upload-log" id="singleConfigPreview"></div>
-        </div>
+          <div class="upload-log rules-stats" id="ruleStats"></div>
 
-        <div class="chart-card" style="margin-top: 12px;">
-          <h3>开放题题目赋值</h3>
-          <p class="hint">用于维护开放题字段与题目名称映射，便于后续导出或质检查看。</p>
-          <div class="rules-grid">
-            <label>
-              开放题字段
-              <select id="openConfigField"></select>
+          <article class="chart-card rules-card rules-secondary rules-single">
+            <h3>单选题题目与选项赋值</h3>
+            <p class="hint">用于维护单选题题目名称与选项文案。格式：每行 `编码=文案`，例如 `1=男`。</p>
+            <div class="rules-grid">
+              <label>
+                单选题字段
+                <select id="singleConfigField"></select>
+              </label>
+              <label>
+                题目名称
+                <input id="singleConfigTitle" type="text" placeholder="例如 Q34 性别" />
+              </label>
+            </div>
+            <label class="rules-textarea-label">
+              选项配置
+              <textarea id="singleConfigOptions" rows="8" placeholder="1=选项A&#10;2=选项B"></textarea>
             </label>
-            <label>
-              题目名称
-              <input id="openConfigTitle" type="text" placeholder="例如 Q32 平台期待（开放题）" />
-            </label>
-          </div>
-          <div class="upload-actions">
-            <button id="btnSaveOpenConfig">保存开放题配置</button>
-          </div>
-          <div class="upload-log" id="openConfigPreview"></div>
+            <div class="upload-actions">
+              <button id="btnSaveSingleConfig">保存单选配置</button>
+            </div>
+            <div class="upload-log" id="singleConfigPreview"></div>
+          </article>
+
+          <article class="chart-card rules-card rules-secondary rules-open">
+            <h3>开放题题目赋值</h3>
+            <p class="hint">用于维护开放题字段与题目名称映射，便于后续导出或质检查看。</p>
+            <div class="rules-grid">
+              <label>
+                开放题字段
+                <select id="openConfigField"></select>
+              </label>
+              <label>
+                题目名称
+                <input id="openConfigTitle" type="text" placeholder="例如 Q32 平台期待（开放题）" />
+              </label>
+            </div>
+            <div class="upload-actions">
+              <button id="btnSaveOpenConfig">保存开放题配置</button>
+            </div>
+            <div class="upload-log" id="openConfigPreview"></div>
+          </article>
         </div>
       </section>
 

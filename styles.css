@@ -187,6 +187,66 @@ h1, h2, h3 { margin: 0 0 8px 0; }
   gap: 8px;
 }
 
+.rules-page .hint {
+  max-width: 920px;
+}
+
+.rules-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rules-card h3 {
+  margin-bottom: 10px;
+}
+
+.rules-primary {
+  background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
+}
+
+.rules-secondary {
+  background: #ffffff;
+}
+
+.rules-actions-card {
+  grid-column: 1 / -1;
+  background: #eef7fb;
+  border-style: dashed;
+}
+
+.rules-actions-card .upload-actions {
+  margin-top: 0;
+}
+
+.rules-stats {
+  grid-column: 1 / -1;
+  background: #f8fafc;
+  border-left: 4px solid #0e7490;
+  white-space: normal;
+  line-height: 1.75;
+}
+
+.rules-single {
+  grid-column: 1 / 2;
+}
+
+.rules-open {
+  grid-column: 2 / 3;
+}
+
+.rules-textarea-label {
+  margin-top: 10px;
+}
+
+.rules-hint {
+  margin-top: 10px;
+  margin-bottom: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f0f8ff;
+}
+
 .rule-inline {
   display: flex;
   align-items: center;
@@ -354,5 +414,14 @@ th {
 
   .cross-grid {
     grid-template-columns: 1fr;
+  }
+
+  .rules-board {
+    grid-template-columns: 1fr;
+  }
+
+  .rules-single,
+  .rules-open {
+    grid-column: auto;
   }
 }
