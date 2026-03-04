@@ -1324,9 +1324,11 @@ function renderWordcloudPanel() {
 
   const entries = getOpenConfigEntries();
   setSelectOptions("wordcloudField", entries.map(([k, v]) => ({ id: k, name: `${k} ${v}` })));
-  if (!fieldNode.value && entries.length) fieldNode.value = entries[0][0];
-  const field = fieldNode.value;
-  if (!field) {
+  if (![...fieldNode.selectedOptions].length && fieldNode.options.length) {
+    fieldNode.options[0].selected = true;
+  }
+  const selectedFields = [...fieldNode.selectedOptions].map((o) => o.value).filter(Boolean);
+  if (!selectedFields.length) {
     topNode.innerHTML = "请先在规则配置中维护开放题字段。";
     chartNode.innerHTML = "";
     return;
@@ -1336,19 +1338,21 @@ function renderWordcloudPanel() {
   const stopwords = splitStopwords(stopNode.value);
 
   const counter = new Map();
-  let sourceCount = 0;
+  let sourceCount = 0; // 有效文本条数（按字段粒度）
   for (const row of analysisRows) {
-    const raw = str(row[field]);
-    if (!raw) continue;
-    sourceCount += 1;
-    const words = tokenizeZh(raw);
-    for (const w0 of words) {
-      const w = w0.trim();
-      if (!w) continue;
-      if (w.length < 2) continue;
-      if (/^\d+$/.test(w)) continue;
-      if (stopwords.has(w)) continue;
-      counter.set(w, (counter.get(w) || 0) + 1);
+    for (const field of selectedFields) {
+      const raw = str(row[field]);
+      if (!raw) continue;
+      sourceCount += 1;
+      const words = tokenizeZh(raw);
+      for (const w0 of words) {
+        const w = w0.trim();
+        if (!w) continue;
+        if (w.length < 2) continue;
+        if (/^\d+$/.test(w)) continue;
+        if (stopwords.has(w)) continue;
+        counter.set(w, (counter.get(w) || 0) + 1);
+      }
     }
   }
 
@@ -1359,13 +1363,15 @@ function renderWordcloudPanel() {
     .slice(0, 180);
 
   if (!words.length) {
-    topNode.innerHTML = `题目：${field}（${openConfig[field] || field}）<br/>无可展示词汇，请降低最小词频或减少停用词。`;
+    const fieldNames = selectedFields.map((f) => `${f}（${openConfig[f] || f}）`).join("、");
+    topNode.innerHTML = `题目：${fieldNames}<br/>无可展示词汇，请降低最小词频或减少停用词。`;
     chartNode.innerHTML = "";
     return;
   }
 
+  const fieldNames = selectedFields.map((f) => `${f}（${openConfig[f] || f}）`).join("、");
   topNode.innerHTML = [
-    `题目：${field}（${openConfig[field] || field}）`,
+    `题目：${fieldNames}`,
     `样本量：${sourceCount}`,
     `词数：${words.length}`,
     `Top20：${words.slice(0, 20).map((x) => `${x.name}(${x.value})`).join("、")}`,
