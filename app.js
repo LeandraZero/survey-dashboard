@@ -168,6 +168,13 @@ let weightConfig = {
 let weightState = { applied: false, message: "未启用" };
 let appStarted = false;
 
+const WEIGHT_DIM_VALUES = {
+  gender: ["男", "女"],
+  age: ["19-25", "26-30", "35+"],
+  adventure: ["0-30", "31-44", "45-60"],
+  community_active: ["有", "无"],
+};
+
 function unlockApp() {
   const gate = document.getElementById("accessGate");
   const shell = document.getElementById("appShell");
@@ -458,6 +465,68 @@ function getWeightDimCandidates() {
     { id: "adventure", name: "冒险等阶（0-30 / 31-44 / 45-60）" },
     { id: "community_active", name: "社区活跃（有/无）" },
   ];
+}
+
+function buildManualWeightGrid(plan) {
+  const grid = document.getElementById("weightManualGrid");
+  if (!grid) return;
+  const gt = plan?.groupTargets || {};
+  const gC = gt.community || {};
+  const gN = gt.non_community || {};
+
+  const blocks = Object.entries(WEIGHT_DIM_VALUES).map(([dim, values]) => {
+    const rows = values
+      .map((v) => {
+        const c = Number(gC?.[dim]?.[v] ?? 0);
+        const n = Number(gN?.[dim]?.[v] ?? 0);
+        return `<tr>
+          <td>${v}</td>
+          <td><input data-weight-cell="1" data-dim="${dim}" data-group="community" data-key="${v}" type="number" step="0.0001" value="${Number.isFinite(c) ? c : 0}" /></td>
+          <td><input data-weight-cell="1" data-dim="${dim}" data-group="non_community" data-key="${v}" type="number" step="0.0001" value="${Number.isFinite(n) ? n : 0}" /></td>
+        </tr>`;
+      })
+      .join("");
+    return `
+      <div class="table-wrap" style="max-height:none;margin-bottom:8px;">
+        <table>
+          <thead><tr><th colspan="3">${dim}</th></tr><tr><th>分层</th><th>社区用户</th><th>非社区用户</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  });
+  grid.innerHTML = blocks.join("");
+
+  const penNode = document.getElementById("weightManualPenetration");
+  if (penNode) {
+    const p = Number(plan?.communityPenetration);
+    penNode.value = Number.isFinite(p) ? String(p) : "";
+  }
+}
+
+function buildPlanFromManualInputs() {
+  const penNode = document.getElementById("weightManualPenetration");
+  const p = Number(penNode?.value || 0);
+  const plan = {
+    mode: "two_stage",
+    communityField: "q27",
+    communityYesCodes: ["1", "2", "3", "4"],
+    communityNoCodes: ["5"],
+    communityPenetration: Number.isFinite(p) && p > 0 && p < 1 ? p : 0.5,
+    groupTargets: { community: {}, non_community: {} },
+    adventureField: "q36",
+  };
+  const cells = [...document.querySelectorAll("[data-weight-cell='1']")];
+  for (const cell of cells) {
+    const dim = str(cell.getAttribute("data-dim"));
+    const group = str(cell.getAttribute("data-group"));
+    const key = str(cell.getAttribute("data-key"));
+    const val = Number(cell.value || 0);
+    if (!dim || !group || !key || !Number.isFinite(val) || val < 0) continue;
+    if (!plan.groupTargets[group][dim]) plan.groupTargets[group][dim] = {};
+    plan.groupTargets[group][dim][key] = val;
+  }
+  return plan;
 }
 
 function parseWeightTargets(text) {
@@ -1632,6 +1701,11 @@ function renderRulesPanel() {
     });
     weightTargets.value = str(weightConfig.targetsText || "");
     weightStats.innerHTML = `状态：${weightState.message}`;
+    try {
+      buildManualWeightGrid(parseWeightPlan(weightTargets.value));
+    } catch {
+      buildManualWeightGrid({});
+    }
   }
 
   renderFrameworkBulkPanel();
@@ -2089,7 +2163,18 @@ function bindActions() {
         return;
       }
       dst.value = JSON.stringify(plan, null, 2);
+      buildManualWeightGrid(plan);
       alert("已从BI表生成加权JSON，请检查后点“保存加权并重算”");
+    });
+  }
+  const btnBuildWeightJson = document.getElementById("btnBuildWeightJson");
+  if (btnBuildWeightJson) {
+    btnBuildWeightJson.addEventListener("click", () => {
+      const dst = document.getElementById("weightTargets");
+      if (!dst) return;
+      const plan = buildPlanFromManualInputs();
+      dst.value = JSON.stringify(plan, null, 2);
+      alert("已根据手动输入生成JSON，请点“保存加权并重算”");
     });
   }
   document.getElementById("btnGenerateWordcloud").addEventListener("click", renderWordcloudPanel);

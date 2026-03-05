@@ -173,8 +173,19 @@
                 BI大盘粘贴（维度/Row Labels/社区活跃/非社区活跃）
                 <textarea id="weightBiInput" rows="6" placeholder="粘贴BI导出的表格（支持TAB或多空格分隔）"></textarea>
               </label>
+              <div class="chart-card" style="padding:10px;">
+                <h4 style="margin:0 0 8px 0;font-size:14px;">手动输入加权目标</h4>
+                <div class="rules-grid">
+                  <label>
+                    社区渗透率（米游社）
+                    <input id="weightManualPenetration" type="number" min="0" max="1" step="0.0001" placeholder="例如 0.62" />
+                  </label>
+                </div>
+                <div id="weightManualGrid"></div>
+              </div>
               <div class="upload-actions">
                 <button id="btnParseWeightBi" class="ghost">从BI表生成JSON</button>
+                <button id="btnBuildWeightJson" class="ghost">从手动输入生成JSON</button>
                 <button id="btnSaveWeight">保存加权并重算</button>
               </div>
               <div class="upload-log" id="weightStats"></div>
