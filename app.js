@@ -1042,7 +1042,7 @@ function renderCross() {
   const filtered = applyGroupedFilters(analysisRows, filterDefs);
   const overall = getQuestionDistribution(filtered, qDef);
   drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${filtered.length}）`, {
-    preserveOrder: qDef.id === "q29",
+    preserveOrder: true,
   });
 
   const sortedCols = [...overall.items].sort((a, b) => b.ratio - a.ratio);
