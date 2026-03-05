@@ -2,6 +2,7 @@ const STORAGE_UPLOAD_AT_KEY = "survey_last_upload_at_v1";
 const RULES_KEY = "survey_rules_v1";
 const SINGLE_CONFIG_KEY = "survey_single_config_v1";
 const OPEN_CONFIG_KEY = "survey_open_config_v1";
+const FRAMEWORK_CONFIG_KEY = "survey_framework_config_v1";
 const ACCESS_PASSWORD = "miyoushe2026";
 const ACCESS_SESSION_KEY = "survey_access_granted_v1";
 const DB_NAME = "survey_dashboard_db";
@@ -135,6 +136,7 @@ let sampleStats = { total: 0, terminateExcluded: 0, invalidExcluded: 0, final: 0
 let currentRules = { ...DEFAULT_RULES };
 let singleConfig = JSON.parse(JSON.stringify(DEFAULT_SINGLE_CONFIG));
 let openConfig = { q32: "Q32 平台期待（开放题）" };
+let frameworkConfig = { raw: "", items: [], updatedAt: "" };
 let appStarted = false;
 
 function unlockApp() {
@@ -364,6 +366,22 @@ function loadOpenConfig() {
 
 function saveOpenConfig() {
   localStorage.setItem(OPEN_CONFIG_KEY, JSON.stringify(openConfig));
+}
+
+function loadFrameworkConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FRAMEWORK_CONFIG_KEY) || "{}");
+    if (!parsed || typeof parsed !== "object") return;
+    frameworkConfig = {
+      raw: str(parsed.raw || ""),
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      updatedAt: str(parsed.updatedAt || ""),
+    };
+  } catch {}
+}
+
+function saveFrameworkConfig() {
+  localStorage.setItem(FRAMEWORK_CONFIG_KEY, JSON.stringify(frameworkConfig));
 }
 
 function getSingleLabels(qid) {
@@ -1229,6 +1247,112 @@ function renderRulesPanel() {
     `废样本：${sampleStats.invalidExcluded}`,
     `最终分析样本：${sampleStats.final}`,
   ].join("<br/>");
+
+  renderFrameworkBulkPanel();
+}
+
+function parseFrameworkBulkText(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+  const rows = raw
+    .split(/\r?\n/)
+    .map((line) => line.split("\t").map((c) => c.trim()))
+    .filter((cells) => cells.some((c) => c));
+  if (!rows.length) return [];
+
+  const header = rows[0].join("|");
+  const hasHeader = /题号|题目属性|题目类型|题干|具体问题|详细题目|跳转逻辑|问卷逻辑/.test(header);
+  const body = hasHeader ? rows.slice(1) : rows;
+  const headCells = hasHeader ? rows[0] : [];
+
+  const findIdx = (keys, fallback) => {
+    if (!hasHeader) return fallback;
+    const idx = headCells.findIndex((h) => keys.some((k) => h.includes(k)));
+    return idx >= 0 ? idx : fallback;
+  };
+
+  const idxQ = findIdx(["题号", "编号"], 0);
+  const idxType = findIdx(["题目属性", "题目类型", "题型", "类型"], 1);
+  const idxTitle = findIdx(["具体问题", "详细题目", "题干", "题目"], 2);
+  const idxLogic = findIdx(["跳转逻辑", "问卷逻辑", "逻辑"], 3);
+
+  const byQid = new Map();
+  for (const cells of body) {
+    const joined = cells.join(" ");
+    const qCell = cells[idxQ] || joined;
+    const m = String(qCell).match(/q?\s*(\d{1,3})/i);
+    if (!m) continue;
+    const qid = `q${Number(m[1])}`;
+    const type = str(cells[idxType] || "");
+    const title = str(cells[idxTitle] || "");
+    const logic = str(cells[idxLogic] || "");
+    if (!type && !title && !logic) continue;
+    byQid.set(qid, { qid, type, title, logic });
+  }
+  return [...byQid.values()].sort((a, b) => Number(a.qid.slice(1)) - Number(b.qid.slice(1)));
+}
+
+function applyFrameworkItems(items) {
+  let singleUpdated = 0;
+  let openUpdated = 0;
+  for (const item of items) {
+    const qid = item.qid;
+    const titleText = str(item.title || "");
+    const fullTitle = titleText ? `Q${Number(qid.slice(1))} ${titleText}` : `Q${Number(qid.slice(1))}`;
+    const t = str(item.type || "");
+    const isOpen = /开放|填空|文本|主观/.test(t);
+    const isSingle = /单选|评分|量表|打分/.test(t);
+
+    if (isOpen) {
+      openConfig[qid] = fullTitle;
+      openUpdated += 1;
+      continue;
+    }
+    if (isSingle || singleConfig[qid]) {
+      const prev = singleConfig[qid] || { labels: {} };
+      singleConfig[qid] = {
+        title: fullTitle,
+        labels: prev.labels || {},
+      };
+      singleUpdated += 1;
+    }
+  }
+  return { singleUpdated, openUpdated };
+}
+
+function renderFrameworkBulkPanel() {
+  const input = document.getElementById("frameworkBulkInput");
+  const preview = document.getElementById("frameworkBulkPreview");
+  if (!input || !preview) return;
+  if (frameworkConfig.raw && !input.value) input.value = frameworkConfig.raw;
+  const items = Array.isArray(frameworkConfig.items) ? frameworkConfig.items : [];
+  const head = `已保存 ${items.length} 道题${frameworkConfig.updatedAt ? `；更新于 ${fmtTime(frameworkConfig.updatedAt)}` : ""}`;
+  const lines = items.slice(0, 20).map((x) => `${x.qid}｜${x.type || "-"}｜${x.title || "-"}｜逻辑：${x.logic || "-"}`);
+  preview.innerHTML = [head, ...lines, items.length > 20 ? `... 其余 ${items.length - 20} 道题` : ""].filter(Boolean).join("<br/>");
+}
+
+function bindFrameworkBulkEditor() {
+  const input = document.getElementById("frameworkBulkInput");
+  const btn = document.getElementById("btnApplyFrameworkBulk");
+  if (!input || !btn) return;
+  btn.addEventListener("click", () => {
+    const items = parseFrameworkBulkText(input.value);
+    if (!items.length) {
+      alert("未识别到有效题目，请检查是否包含题号和题干列。");
+      return;
+    }
+    const applied = applyFrameworkItems(items);
+    frameworkConfig = {
+      raw: str(input.value || ""),
+      items,
+      updatedAt: new Date().toISOString(),
+    };
+    saveFrameworkConfig();
+    saveSingleConfig();
+    saveOpenConfig();
+    renderAll();
+    alert(`框架导入完成：识别 ${items.length} 题；更新单选题 ${applied.singleUpdated} 题；更新开放题 ${applied.openUpdated} 题。`);
+  });
 }
 
 function saveRulesFromPanel() {
@@ -1637,6 +1761,7 @@ async function bootstrap() {
   rawRows = dedupRows(rawRows);
   loadSingleConfig();
   loadOpenConfig();
+  loadFrameworkConfig();
   loadRules(getHeaders());
   recomputeAnalysisRows();
 
@@ -1650,6 +1775,7 @@ async function bootstrap() {
   bindActions();
   bindSingleConfigEditor();
   bindOpenConfigEditor();
+  bindFrameworkBulkEditor();
   setImportProgress(0, "未开始导入");
   document.getElementById("wordcloudMinLen").value = "2";
   document.getElementById("wordcloudMaxLen").value = "8";

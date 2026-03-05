@@ -156,6 +156,19 @@
             </div>
           </div>
 
+          <article class="chart-card rules-card rules-secondary" style="grid-column: 1 / -1;">
+            <h3>问卷框架一键导入</h3>
+            <p class="hint">可一次性粘贴包含“题号 / 题干 / 题目属性 / 跳转逻辑”的表格文本（支持 Excel 复制的制表符格式）。系统会自动识别并更新题目配置。</p>
+            <label class="rules-textarea-label">
+              粘贴问卷框架
+              <textarea id="frameworkBulkInput" rows="8" placeholder="示例列：题号[TAB]题目属性[TAB]题干[TAB]跳转逻辑"></textarea>
+            </label>
+            <div class="upload-actions">
+              <button id="btnApplyFrameworkBulk">解析并应用</button>
+            </div>
+            <div class="upload-log" id="frameworkBulkPreview"></div>
+          </article>
+
           <div class="upload-log rules-stats" id="ruleStats"></div>
 
           <article class="chart-card rules-card rules-secondary rules-open">
