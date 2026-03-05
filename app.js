@@ -528,6 +528,20 @@ function isCommunityUser(row, plan) {
   return code !== "";
 }
 
+function resolvePenetration(plan) {
+  const direct = Number(plan?.communityPenetration);
+  if (Number.isFinite(direct) && direct > 0 && direct < 1) {
+    return { community: direct, non_community: 1 - direct };
+  }
+  const pen = plan?.penetration || {};
+  const c = Number(pen.community);
+  const n = Number(pen.non_community);
+  if (Number.isFinite(c) && Number.isFinite(n) && c > 0 && n > 0) {
+    return { community: c / (c + n), non_community: n / (c + n) };
+  }
+  return null;
+}
+
 function getDimValue(row, dim, plan) {
   const d = str(dim);
   if (d === "gender") return getSingleLabel("q34", str(row.q34));
@@ -629,13 +643,13 @@ function applyWeighting() {
   rakeRows(commRows, groupTargets.community || {}, dims, plan, maxIter, capMin, capMax);
   rakeRows(nonRows, groupTargets.non_community || {}, dims, plan, maxIter, capMin, capMax);
 
-  const pen = plan.penetration || {};
-  const pComm = Number(pen.community);
-  const pNon = Number(pen.non_community);
-  if (Number.isFinite(pComm) && Number.isFinite(pNon) && pComm > 0 && pNon > 0) {
+  const resolvedPen = resolvePenetration(plan);
+  if (resolvedPen) {
+    const pComm = resolvedPen.community;
+    const pNon = resolvedPen.non_community;
     const total = commRows.length + nonRows.length;
-    const desiredComm = (pComm / (pComm + pNon)) * total;
-    const desiredNon = (pNon / (pComm + pNon)) * total;
+    const desiredComm = pComm * total;
+    const desiredNon = pNon * total;
     const curComm = sumWeights(commRows);
     const curNon = sumWeights(nonRows);
     const fComm = curComm > 0 ? desiredComm / curComm : 1;
