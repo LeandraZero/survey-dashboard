@@ -140,8 +140,27 @@ let openConfig = { q32: "Q32 平台期待（开放题）" };
 let frameworkConfig = { raw: "", items: [], updatedAt: "" };
 let weightConfig = {
   enabled: false,
-  dims: ["q34"],
-  targetsText: JSON.stringify({ q34: { 1: 0.5, 2: 0.5 } }, null, 2),
+  dims: ["gender", "age", "adventure", "community_active"],
+  targetsText: JSON.stringify({
+    mode: "two_stage",
+    communityField: "q27",
+    communityYesCodes: ["1", "2", "3", "4"],
+    communityNoCodes: ["5"],
+    penetration: { community: 0.62, non_community: 0.38 },
+    groupTargets: {
+      community: {
+        gender: { "男": 0.6, "女": 0.4 },
+        age: { "19-25": 0.5, "26-30": 0.35, "35+": 0.15 },
+        adventure: { "0-30": 0.2, "31-44": 0.35, "45-60": 0.45 },
+      },
+      non_community: {
+        gender: { "男": 0.55, "女": 0.45 },
+        age: { "19-25": 0.45, "26-30": 0.35, "35+": 0.2 },
+        adventure: { "0-30": 0.25, "31-44": 0.4, "45-60": 0.35 },
+      },
+    },
+    adventureField: "q36",
+  }, null, 2),
   maxIter: 24,
   capMin: 0.2,
   capMax: 5,
@@ -433,11 +452,18 @@ function saveWeightConfig() {
 }
 
 function getWeightDimCandidates() {
-  return Object.keys(singleConfig)
+  const baseDims = [
+    { id: "gender", name: "性别（男女）" },
+    { id: "age", name: "年龄（19-25 / 26-30 / 35+）" },
+    { id: "adventure", name: "冒险等阶（0-30 / 31-44 / 45-60）" },
+    { id: "community_active", name: "社区活跃（有/无）" },
+  ];
+  const qDims = Object.keys(singleConfig)
     .filter((qid) => /^q\d+$/.test(qid))
     .filter((qid) => Object.keys(getSingleLabels(qid)).length >= 2)
     .sort((a, b) => Number(a.replace("q", "")) - Number(b.replace("q", "")))
     .map((qid) => ({ id: qid, name: getSingleTitle(qid, qid.toUpperCase()) }));
+  return [...baseDims, ...qDims];
 }
 
 function parseWeightTargets(text) {
@@ -462,6 +488,100 @@ function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
 
+function parseWeightPlan(text) {
+  const raw = str(text);
+  if (!raw) return {};
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object") return {};
+  return parsed;
+}
+
+function normKey(v) {
+  return str(v).toLowerCase().replace(/\s+/g, "").replace(/[：:]/g, "");
+}
+
+function ageBucketFromQ33(code) {
+  const n = Number(code);
+  if (!Number.isFinite(n)) return "";
+  if (n >= 16 && n <= 22) return "19-25";
+  if (n >= 11 && n <= 15) return "26-30";
+  if (n <= 6) return "35+";
+  return "";
+}
+
+function adventureBucketFromValue(v) {
+  const n = Number(str(v).replace(/[^\d]/g, ""));
+  if (!Number.isFinite(n)) return "";
+  if (n <= 30) return "0-30";
+  if (n <= 44) return "31-44";
+  if (n <= 60) return "45-60";
+  return "";
+}
+
+function isCommunityUser(row, plan) {
+  const field = str(plan.communityField || "q27");
+  const yes = new Set((plan.communityYesCodes || ["1", "2", "3", "4"]).map((x) => String(x)));
+  const no = new Set((plan.communityNoCodes || ["5"]).map((x) => String(x)));
+  const code = str(row[field]);
+  if (yes.has(code)) return true;
+  if (no.has(code)) return false;
+  return code !== "";
+}
+
+function getDimValue(row, dim, plan) {
+  const d = str(dim);
+  if (d === "gender") return getSingleLabel("q34", str(row.q34));
+  if (d === "age") return ageBucketFromQ33(str(row.q33));
+  if (d === "community_active") return isCommunityUser(row, plan) ? "有" : "无";
+  if (d === "adventure") return adventureBucketFromValue(row[str(plan.adventureField || "q36")]);
+  if (/^q\d+$/.test(d)) {
+    const code = str(row[d]);
+    const label = getSingleLabel(d, code);
+    return label || code;
+  }
+  return "";
+}
+
+function rakeRows(rows, targetsByDim, dims, plan, maxIter, capMin, capMax) {
+  if (!rows.length) return;
+  for (let iter = 0; iter < maxIter; iter += 1) {
+    for (const dim of dims) {
+      const targets = targetsByDim[dim];
+      if (!targets || typeof targets !== "object") continue;
+      const targetKeys = Object.keys(targets);
+      if (!targetKeys.length) continue;
+      const targetMap = Object.fromEntries(targetKeys.map((k) => [normKey(k), Number(targets[k])]));
+      const current = {};
+      let currentTotal = 0;
+      for (const k of Object.keys(targetMap)) current[k] = 0;
+
+      for (const row of rows) {
+        const v = normKey(getDimValue(row, dim, plan));
+        if (!(v in current)) continue;
+        const w = getRowWeight(row);
+        current[v] += w;
+        currentTotal += w;
+      }
+      if (currentTotal <= 0) continue;
+      const tSum = Object.values(targetMap).reduce((s, x) => s + (Number.isFinite(x) && x > 0 ? x : 0), 0);
+      if (tSum <= 0) continue;
+
+      const factors = {};
+      for (const k of Object.keys(targetMap)) {
+        const desired = (targetMap[k] / tSum) * currentTotal;
+        const cur = current[k];
+        factors[k] = cur > 0 ? desired / cur : 1;
+      }
+
+      for (const row of rows) {
+        const v = normKey(getDimValue(row, dim, plan));
+        if (!(v in factors)) continue;
+        row.__w = clamp(getRowWeight(row) * factors[v], capMin, capMax);
+      }
+    }
+  }
+}
+
 function applyWeighting() {
   for (const r of analysisRows) r.__w = 1;
   if (!analysisRows.length || !weightConfig.enabled) {
@@ -469,55 +589,59 @@ function applyWeighting() {
     return;
   }
 
-  let targetsByQ = {};
+  let plan = {};
   try {
-    targetsByQ = parseWeightTargets(weightConfig.targetsText);
+    plan = parseWeightPlan(weightConfig.targetsText);
   } catch {
     weightState = { applied: false, message: "目标分布 JSON 解析失败，已回退未加权" };
     return;
   }
-  const dims = (weightConfig.dims || []).filter((q) => targetsByQ[q]);
-  if (!dims.length) {
-    weightState = { applied: false, message: "未配置有效加权维度，已回退未加权" };
-    return;
-  }
-
   const maxIter = Math.max(1, Number(weightConfig.maxIter || 24));
   const capMin = Math.max(0.01, Number(weightConfig.capMin || 0.2));
   const capMax = Math.max(capMin + 0.01, Number(weightConfig.capMax || 5));
 
-  for (let iter = 0; iter < maxIter; iter += 1) {
-    for (const qid of dims) {
-      const targets = targetsByQ[qid];
-      const targetCodes = new Set(Object.keys(targets));
-      const current = {};
-      let currentTotal = 0;
-      for (const c of targetCodes) current[c] = 0;
-
-      for (const row of analysisRows) {
-        const code = str(row[qid]);
-        if (!targetCodes.has(code)) continue;
-        const w = getRowWeight(row);
-        current[code] += w;
-        currentTotal += w;
-      }
-      if (currentTotal <= 0) continue;
-      const targetSum = Object.values(targets).reduce((s, x) => s + Number(x || 0), 0);
-      if (targetSum <= 0) continue;
-
-      const factors = {};
-      for (const c of targetCodes) {
-        const desired = (Number(targets[c]) / targetSum) * currentTotal;
-        const cur = current[c];
-        factors[c] = cur > 0 ? desired / cur : 1;
-      }
-
-      for (const row of analysisRows) {
-        const code = str(row[qid]);
-        if (!targetCodes.has(code)) continue;
-        row.__w = clamp(getRowWeight(row) * factors[code], capMin, capMax);
-      }
+  if (str(plan.mode) !== "two_stage") {
+    const targetsByQ = parseWeightTargets(weightConfig.targetsText);
+    const dims = (weightConfig.dims || []).filter((q) => targetsByQ[q]);
+    if (!dims.length) {
+      weightState = { applied: false, message: "未配置有效加权维度，已回退未加权" };
+      return;
     }
+    rakeRows(analysisRows, targetsByQ, dims, plan, maxIter, capMin, capMax);
+    const totalSimple = sumWeights(analysisRows);
+    if (totalSimple > 0) {
+      const meanSimple = totalSimple / analysisRows.length;
+      for (const r of analysisRows) r.__w = getRowWeight(r) / meanSimple;
+    }
+    weightState = { applied: true, message: `已加权（Raking）维度：${dims.join(", ")}` };
+    return;
+  }
+
+  const groupTargets = plan.groupTargets || {};
+  const dims = (weightConfig.dims || []).filter((d) => d in (groupTargets.community || {}) || d in (groupTargets.non_community || {}));
+  if (!dims.length) {
+    weightState = { applied: false, message: "两阶段加权未配置维度，已回退未加权" };
+    return;
+  }
+  const commRows = analysisRows.filter((r) => isCommunityUser(r, plan));
+  const nonRows = analysisRows.filter((r) => !isCommunityUser(r, plan));
+
+  rakeRows(commRows, groupTargets.community || {}, dims, plan, maxIter, capMin, capMax);
+  rakeRows(nonRows, groupTargets.non_community || {}, dims, plan, maxIter, capMin, capMax);
+
+  const pen = plan.penetration || {};
+  const pComm = Number(pen.community);
+  const pNon = Number(pen.non_community);
+  if (Number.isFinite(pComm) && Number.isFinite(pNon) && pComm > 0 && pNon > 0) {
+    const total = commRows.length + nonRows.length;
+    const desiredComm = (pComm / (pComm + pNon)) * total;
+    const desiredNon = (pNon / (pComm + pNon)) * total;
+    const curComm = sumWeights(commRows);
+    const curNon = sumWeights(nonRows);
+    const fComm = curComm > 0 ? desiredComm / curComm : 1;
+    const fNon = curNon > 0 ? desiredNon / curNon : 1;
+    for (const r of commRows) r.__w = clamp(getRowWeight(r) * fComm, capMin, capMax);
+    for (const r of nonRows) r.__w = clamp(getRowWeight(r) * fNon, capMin, capMax);
   }
 
   const total = sumWeights(analysisRows);
@@ -525,7 +649,7 @@ function applyWeighting() {
     const mean = total / analysisRows.length;
     for (const r of analysisRows) r.__w = getRowWeight(r) / mean;
   }
-  weightState = { applied: true, message: `已加权（Raking）维度：${dims.join(", ")}` };
+  weightState = { applied: true, message: `已加权（两阶段）维度：${dims.join(", ")}；社区样本 ${commRows.length}，非社区样本 ${nonRows.length}` };
 }
 
 function getSingleLabels(qid) {
@@ -1512,9 +1636,13 @@ function saveWeightFromPanel() {
   if (!weightEnable || !weightDims || !weightTargets) return;
   let parsed = {};
   try {
-    parsed = parseWeightTargets(weightTargets.value);
+    parsed = parseWeightPlan(weightTargets.value);
   } catch (e) {
     alert(`加权目标解析失败：${e.message}`);
+    return;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    alert("加权目标不能为空");
     return;
   }
   weightConfig = {
