@@ -160,19 +160,6 @@
                 <input id="weightEnable" type="checkbox" />
                 启用加权（全站按加权值展示）
               </label>
-              <label>
-                加权维度（可多选）
-                <select id="weightDims" multiple size="5"></select>
-                <span class="field-tip">建议选择单选题维度，例如性别、年龄、活跃度等</span>
-              </label>
-              <label class="rules-textarea-label">
-                目标分布（JSON）
-                <textarea id="weightTargets" rows="6" placeholder='{"q34":{"1":0.48,"2":0.52},"q33":{"15":0.2,"16":0.3}}'></textarea>
-              </label>
-              <label class="rules-textarea-label">
-                BI大盘粘贴（维度/Row Labels/社区活跃/非社区活跃）
-                <textarea id="weightBiInput" rows="6" placeholder="粘贴BI导出的表格（支持TAB或多空格分隔）"></textarea>
-              </label>
               <div class="chart-card" style="padding:10px;">
                 <h4 style="margin:0 0 8px 0;font-size:14px;">手动输入加权目标</h4>
                 <div class="rules-grid">
@@ -184,8 +171,6 @@
                 <div id="weightManualGrid"></div>
               </div>
               <div class="upload-actions">
-                <button id="btnParseWeightBi" class="ghost">从BI表生成JSON</button>
-                <button id="btnBuildWeightJson" class="ghost">从手动输入生成JSON</button>
                 <button id="btnSaveWeight">保存加权并重算</button>
               </div>
               <div class="upload-log" id="weightStats"></div>

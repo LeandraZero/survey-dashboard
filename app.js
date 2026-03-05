@@ -1667,8 +1667,6 @@ function renderRulesPanel() {
   const autoHint = document.getElementById("ruleAutoHint");
   const ruleStats = document.getElementById("ruleStats");
   const weightEnable = document.getElementById("weightEnable");
-  const weightDims = document.getElementById("weightDims");
-  const weightTargets = document.getElementById("weightTargets");
   const weightStats = document.getElementById("weightStats");
 
   if (!terminateField || !terminateValue || !durationField || !enableDuration || !minDuration || !enableRequired || !requiredFields || !autoHint || !ruleStats) return;
@@ -1692,17 +1690,11 @@ function renderRulesPanel() {
     `最终分析样本：${sampleStats.final}`,
   ].join("<br/>");
 
-  if (weightEnable && weightDims && weightTargets && weightStats) {
-    const candidates = getWeightDimCandidates();
-    setSelectOptions("weightDims", candidates.map((x) => ({ id: x.id, name: x.name })));
+  if (weightEnable && weightStats) {
     weightEnable.checked = !!weightConfig.enabled;
-    [...weightDims.options].forEach((o) => {
-      o.selected = (weightConfig.dims || []).includes(o.value);
-    });
-    weightTargets.value = str(weightConfig.targetsText || "");
     weightStats.innerHTML = `状态：${weightState.message}`;
     try {
-      buildManualWeightGrid(parseWeightPlan(weightTargets.value));
+      buildManualWeightGrid(parseWeightPlan(weightConfig.targetsText || ""));
     } catch {
       buildManualWeightGrid({});
     }
@@ -1713,24 +1705,12 @@ function renderRulesPanel() {
 
 function saveWeightFromPanel() {
   const weightEnable = document.getElementById("weightEnable");
-  const weightDims = document.getElementById("weightDims");
-  const weightTargets = document.getElementById("weightTargets");
-  if (!weightEnable || !weightDims || !weightTargets) return;
-  let parsed = {};
-  try {
-    parsed = parseWeightPlan(weightTargets.value);
-  } catch (e) {
-    alert(`加权目标解析失败：${e.message}`);
-    return;
-  }
-  if (!parsed || typeof parsed !== "object") {
-    alert("加权目标不能为空");
-    return;
-  }
+  if (!weightEnable) return;
+  const parsed = buildPlanFromManualInputs();
   weightConfig = {
     ...weightConfig,
     enabled: !!weightEnable.checked,
-    dims: [...weightDims.selectedOptions].map((o) => o.value),
+    dims: Object.keys(WEIGHT_DIM_VALUES),
     targetsText: JSON.stringify(parsed, null, 2),
   };
   saveWeightConfig();
@@ -2151,32 +2131,6 @@ function bindActions() {
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
   const btnSaveWeight = document.getElementById("btnSaveWeight");
   if (btnSaveWeight) btnSaveWeight.addEventListener("click", saveWeightFromPanel);
-  const btnParseWeightBi = document.getElementById("btnParseWeightBi");
-  if (btnParseWeightBi) {
-    btnParseWeightBi.addEventListener("click", () => {
-      const src = document.getElementById("weightBiInput");
-      const dst = document.getElementById("weightTargets");
-      if (!src || !dst) return;
-      const plan = parseBiWeightTable(src.value);
-      if (!plan) {
-        alert("未识别到有效BI表格，请检查粘贴格式");
-        return;
-      }
-      dst.value = JSON.stringify(plan, null, 2);
-      buildManualWeightGrid(plan);
-      alert("已从BI表生成加权JSON，请检查后点“保存加权并重算”");
-    });
-  }
-  const btnBuildWeightJson = document.getElementById("btnBuildWeightJson");
-  if (btnBuildWeightJson) {
-    btnBuildWeightJson.addEventListener("click", () => {
-      const dst = document.getElementById("weightTargets");
-      if (!dst) return;
-      const plan = buildPlanFromManualInputs();
-      dst.value = JSON.stringify(plan, null, 2);
-      alert("已根据手动输入生成JSON，请点“保存加权并重算”");
-    });
-  }
   document.getElementById("btnGenerateWordcloud").addEventListener("click", renderWordcloudPanel);
 }
 
