@@ -460,42 +460,68 @@ function rowMatchGroup(row, def, code) {
 }
 
 function getFilterOptions() {
+  const withExclude = (items) => {
+    const out = [];
+    for (const it of items) {
+      out.push({ ...it, mode: "include" });
+      out.push({
+        ...it,
+        id: `not:${it.id}`,
+        name: `排除｜${it.name}`,
+        mode: "exclude",
+      });
+    }
+    return out;
+  };
+
   const q34Labels = getSingleLabels("q34");
   const q1Labels = getSingleLabels("q1");
   const q29Labels = getSingleLabels("q29");
   const q27Labels = getSingleLabels("q27");
+  const q2AnyDiscuss = {
+    id: "q2_any=1",
+    name: "Q2有任意内容讨论（1-10）",
+    groupKey: "q2_any",
+    fn: (r) => {
+      for (let i = 1; i <= 10; i += 1) {
+        if (hasQ2ByCode(r, i)) return true;
+      }
+      return false;
+    },
+  };
   return [
-    { id: "all", name: "不过滤", groupKey: "all", fn: () => true },
-    ...Object.entries(q34Labels).map(([code, label]) => ({
+    { id: "all", name: "不过滤", groupKey: "all", mode: "include", fn: () => true },
+    ...withExclude(Object.entries(q34Labels).map(([code, label]) => ({
       id: `q34=${code}`,
       name: `${getSingleTitle("q34", "Q34")}=${label}`,
       groupKey: "q34",
       fn: (r) => str(r.q34) === String(code),
-    })),
-    ...Object.entries(q1Labels).map(([code, label]) => ({
+    }))),
+    ...withExclude(Object.entries(q1Labels).map(([code, label]) => ({
       id: `q1=${code}`,
       name: `${getSingleTitle("q1", "Q1")}=${label}`,
       groupKey: "q1",
       fn: (r) => str(r.q1) === String(code),
-    })),
-    ...Object.entries(q27Labels).map(([code, label]) => ({
+    }))),
+    ...withExclude(Object.entries(q27Labels).map(([code, label]) => ({
       id: `q27=${code}`,
       name: `${getSingleTitle("q27", "Q27")}=${label}`,
       groupKey: "q27",
       fn: (r) => str(r.q27) === String(code),
-    })),
-    ...Object.entries(q29Labels).map(([code, label]) => ({
+    }))),
+    ...withExclude(Object.entries(q29Labels).map(([code, label]) => ({
       id: `q29=${code}`,
       name: `${getSingleTitle("q29", "Q29")}=${label}`,
       groupKey: "q29",
       fn: (r) => str(r.q29) === String(code),
-    })),
-    ...Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
+    }))),
+    ...withExclude([q2AnyDiscuss]),
+    ...withExclude(Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
       id: `q2_${code}=1`,
       name: `Q2包含：${label}`,
       groupKey: "q2",
       fn: (r) => str(r[`q2_${code}_${findQ2ColumnSuffix(code, r)}`] || r[`q2_${code}`]) === "1" || hasQ2ByCode(r, Number(code)),
-    })),
+    }))),
   ];
 }
 
@@ -945,17 +971,24 @@ function getSelectedFilterDefs() {
 
 function applyGroupedFilters(rows, filterDefs) {
   if (!filterDefs.length || filterDefs[0]?.id === "all") return rows;
-  const groups = new Map();
+  const includeGroups = new Map();
+  const excludeGroups = new Map();
   for (const def of filterDefs) {
     const key = def.groupKey || def.id;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(def);
+    const target = def.mode === "exclude" ? excludeGroups : includeGroups;
+    if (!target.has(key)) target.set(key, []);
+    target.get(key).push(def);
   }
 
-  // SPSS 多重响应思路：同一题内 OR，不同题之间 AND
+  // SPSS 多重响应思路：
+  // 包含筛选：同一题内 OR，不同题之间 AND
+  // 排除筛选：同一题内 OR 后整体取反
   return rows.filter((row) => {
-    for (const defs of groups.values()) {
+    for (const defs of includeGroups.values()) {
       if (!defs.some((d) => d.fn(row))) return false;
+    }
+    for (const defs of excludeGroups.values()) {
+      if (defs.some((d) => d.fn(row))) return false;
     }
     return true;
   });
