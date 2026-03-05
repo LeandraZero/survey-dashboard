@@ -1195,18 +1195,38 @@ function bindOpenConfigEditor() {
   const fieldSelect = document.getElementById("openConfigField");
   const titleInput = document.getElementById("openConfigTitle");
   const saveBtn = document.getElementById("btnSaveOpenConfig");
-  if (!fieldSelect || !titleInput || !saveBtn) return;
+  if (!fieldSelect || !titleInput) return;
 
-  fieldSelect.addEventListener("change", renderOpenConfigPanel);
-  saveBtn.addEventListener("click", () => {
+  const persistCurrent = () => {
     const key = fieldSelect.value;
     if (!key) return;
     const title = str(titleInput.value) || key;
     openConfig[key] = title;
     saveOpenConfig();
     renderOpenConfigPanel();
-    alert("开放题配置已保存");
+  };
+
+  fieldSelect.addEventListener("change", () => {
+    persistCurrent();
+    renderOpenConfigPanel();
   });
+
+  let timer = null;
+  titleInput.addEventListener("input", () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      persistCurrent();
+      timer = null;
+    }, 280);
+  });
+  titleInput.addEventListener("blur", persistCurrent);
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      persistCurrent();
+      alert("开放题配置已保存");
+    });
+  }
 }
 
 function setSelectOptionsWithRaw(selectId, values) {
