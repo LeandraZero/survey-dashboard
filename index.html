@@ -153,6 +153,29 @@
             </div>
           </article>
 
+          <article class="chart-card rules-card rules-primary">
+            <h3>加权设置（Raking）</h3>
+            <div class="rules-stack">
+              <label class="rule-inline">
+                <input id="weightEnable" type="checkbox" />
+                启用加权（全站按加权值展示）
+              </label>
+              <label>
+                加权维度（可多选）
+                <select id="weightDims" multiple size="5"></select>
+                <span class="field-tip">建议选择单选题维度，例如性别、年龄、活跃度等</span>
+              </label>
+              <label class="rules-textarea-label">
+                目标分布（JSON）
+                <textarea id="weightTargets" rows="6" placeholder='{"q34":{"1":0.48,"2":0.52},"q33":{"15":0.2,"16":0.3}}'></textarea>
+              </label>
+              <div class="upload-actions">
+                <button id="btnSaveWeight">保存加权并重算</button>
+              </div>
+              <div class="upload-log" id="weightStats"></div>
+            </div>
+          </article>
+
           <div class="chart-card rules-actions-card">
             <div class="upload-actions">
               <button id="btnSaveRules">保存并重算</button>

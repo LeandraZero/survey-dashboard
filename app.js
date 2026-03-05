@@ -3,6 +3,7 @@ const RULES_KEY = "survey_rules_v1";
 const SINGLE_CONFIG_KEY = "survey_single_config_v1";
 const OPEN_CONFIG_KEY = "survey_open_config_v1";
 const FRAMEWORK_CONFIG_KEY = "survey_framework_config_v1";
+const WEIGHT_CONFIG_KEY = "survey_weight_config_v1";
 const ACCESS_PASSWORD = "miyoushe2026";
 const ACCESS_SESSION_KEY = "survey_access_granted_v1";
 const DB_NAME = "survey_dashboard_db";
@@ -137,6 +138,15 @@ let currentRules = { ...DEFAULT_RULES };
 let singleConfig = JSON.parse(JSON.stringify(DEFAULT_SINGLE_CONFIG));
 let openConfig = { q32: "Q32 平台期待（开放题）" };
 let frameworkConfig = { raw: "", items: [], updatedAt: "" };
+let weightConfig = {
+  enabled: false,
+  dims: ["q34"],
+  targetsText: JSON.stringify({ q34: { 1: 0.5, 2: 0.5 } }, null, 2),
+  maxIter: 24,
+  capMin: 0.2,
+  capMax: 5,
+};
+let weightState = { applied: false, message: "未启用" };
 let appStarted = false;
 
 function unlockApp() {
@@ -256,6 +266,26 @@ function parseDate(v) {
 
 function fmtPct(n) {
   return `${(n * 100).toFixed(1)}%`;
+}
+
+function isWeightEnabled() {
+  return !!weightConfig.enabled;
+}
+
+function getRowWeight(row) {
+  const w = Number(row?.__w ?? 1);
+  if (!Number.isFinite(w) || w <= 0) return 1;
+  return w;
+}
+
+function sumWeights(rows) {
+  return rows.reduce((s, r) => s + getRowWeight(r), 0);
+}
+
+function fmtCount(n) {
+  const v = Number(n || 0);
+  if (isWeightEnabled()) return v.toFixed(1);
+  return String(Math.round(v));
 }
 
 function fmtTime(ts) {
@@ -382,6 +412,120 @@ function loadFrameworkConfig() {
 
 function saveFrameworkConfig() {
   localStorage.setItem(FRAMEWORK_CONFIG_KEY, JSON.stringify(frameworkConfig));
+}
+
+function loadWeightConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WEIGHT_CONFIG_KEY) || "{}");
+    if (!parsed || typeof parsed !== "object") return;
+    weightConfig = {
+      ...weightConfig,
+      ...parsed,
+      enabled: !!parsed.enabled,
+      dims: Array.isArray(parsed.dims) ? parsed.dims : weightConfig.dims,
+      targetsText: str(parsed.targetsText || weightConfig.targetsText),
+    };
+  } catch {}
+}
+
+function saveWeightConfig() {
+  localStorage.setItem(WEIGHT_CONFIG_KEY, JSON.stringify(weightConfig));
+}
+
+function getWeightDimCandidates() {
+  return Object.keys(singleConfig)
+    .filter((qid) => /^q\d+$/.test(qid))
+    .filter((qid) => Object.keys(getSingleLabels(qid)).length >= 2)
+    .sort((a, b) => Number(a.replace("q", "")) - Number(b.replace("q", "")))
+    .map((qid) => ({ id: qid, name: getSingleTitle(qid, qid.toUpperCase()) }));
+}
+
+function parseWeightTargets(text) {
+  const raw = str(text);
+  if (!raw) return {};
+  const parsed = JSON.parse(raw);
+  const out = {};
+  for (const [qid, map] of Object.entries(parsed || {})) {
+    if (!/^q\d+$/.test(qid) || !map || typeof map !== "object") continue;
+    const t = {};
+    for (const [code, val] of Object.entries(map)) {
+      const num = Number(val);
+      if (!Number.isFinite(num) || num <= 0) continue;
+      t[String(code)] = num;
+    }
+    if (Object.keys(t).length) out[qid] = t;
+  }
+  return out;
+}
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function applyWeighting() {
+  for (const r of analysisRows) r.__w = 1;
+  if (!analysisRows.length || !weightConfig.enabled) {
+    weightState = { applied: false, message: "未启用" };
+    return;
+  }
+
+  let targetsByQ = {};
+  try {
+    targetsByQ = parseWeightTargets(weightConfig.targetsText);
+  } catch {
+    weightState = { applied: false, message: "目标分布 JSON 解析失败，已回退未加权" };
+    return;
+  }
+  const dims = (weightConfig.dims || []).filter((q) => targetsByQ[q]);
+  if (!dims.length) {
+    weightState = { applied: false, message: "未配置有效加权维度，已回退未加权" };
+    return;
+  }
+
+  const maxIter = Math.max(1, Number(weightConfig.maxIter || 24));
+  const capMin = Math.max(0.01, Number(weightConfig.capMin || 0.2));
+  const capMax = Math.max(capMin + 0.01, Number(weightConfig.capMax || 5));
+
+  for (let iter = 0; iter < maxIter; iter += 1) {
+    for (const qid of dims) {
+      const targets = targetsByQ[qid];
+      const targetCodes = new Set(Object.keys(targets));
+      const current = {};
+      let currentTotal = 0;
+      for (const c of targetCodes) current[c] = 0;
+
+      for (const row of analysisRows) {
+        const code = str(row[qid]);
+        if (!targetCodes.has(code)) continue;
+        const w = getRowWeight(row);
+        current[code] += w;
+        currentTotal += w;
+      }
+      if (currentTotal <= 0) continue;
+      const targetSum = Object.values(targets).reduce((s, x) => s + Number(x || 0), 0);
+      if (targetSum <= 0) continue;
+
+      const factors = {};
+      for (const c of targetCodes) {
+        const desired = (Number(targets[c]) / targetSum) * currentTotal;
+        const cur = current[c];
+        factors[c] = cur > 0 ? desired / cur : 1;
+      }
+
+      for (const row of analysisRows) {
+        const code = str(row[qid]);
+        if (!targetCodes.has(code)) continue;
+        row.__w = clamp(getRowWeight(row) * factors[code], capMin, capMax);
+      }
+    }
+  }
+
+  const total = sumWeights(analysisRows);
+  if (total > 0) {
+    const mean = total / analysisRows.length;
+    for (const r of analysisRows) r.__w = getRowWeight(r) / mean;
+  }
+  weightState = { applied: true, message: `已加权（Raking）维度：${dims.join(", ")}` };
 }
 
 function getSingleLabels(qid) {
@@ -618,13 +762,14 @@ function recomputeAnalysisRows() {
     invalidExcluded: result.invalidExcluded,
     final: result.final,
   };
+  applyWeighting();
   if (lastImportStats) {
     lastImportStats = {
       ...lastImportStats,
       dedupRows: rawRows.length,
       terminateExcluded: sampleStats.terminateExcluded,
       invalidExcluded: sampleStats.invalidExcluded,
-      analysisRows: analysisRows.length,
+      analysisRows: isWeightEnabled() ? Number(fmtCount(sumWeights(analysisRows))) : analysisRows.length,
     };
   }
 }
@@ -662,14 +807,15 @@ function calcMulti(rows, prefix, labels, maxCode = Infinity) {
   if (!rows.length) return { denominator: 0, items: [] };
   const cols = getOptionColumns(Object.keys(rows[0]), prefix, maxCode);
   const answered = rows.filter((r) => cols.some((x) => str(r[x.col]) !== ""));
-  const denom = answered.length;
+  const denom = sumWeights(answered);
   const counts = {};
   for (const code of Object.keys(labels)) counts[code] = 0;
 
   for (const r of answered) {
+    const w = getRowWeight(r);
     for (const { code, col } of cols) {
       if (!(code in labels)) continue;
-      if (str(r[col]) === "1") counts[code] += 1;
+      if (str(r[col]) === "1") counts[code] += w;
     }
   }
 
@@ -696,9 +842,10 @@ function calcRankTop1(rows, prefix, labels) {
       if (rank && rank > 0) ranked.push({ code, rank });
     }
     if (!ranked.length) continue;
-    denom += 1;
+    const w = getRowWeight(r);
+    denom += w;
     const top = ranked.find((x) => x.rank === 1);
-    if (top && top.code in labels) counts[top.code] += 1;
+    if (top && top.code in labels) counts[top.code] += w;
   }
 
   const items = Object.entries(labels).map(([code, name]) => ({
@@ -719,14 +866,15 @@ function calcRankPresence(rows, prefix, labels) {
   let denom = 0;
   for (const r of rows) {
     let hasAnyRank = false;
+    const w = getRowWeight(r);
     for (const { code, col } of cols) {
       const rank = toInt(r[col]);
       if (rank && rank > 0) {
         hasAnyRank = true;
-        if (code in labels) counts[code] += 1;
+        if (code in labels) counts[code] += w;
       }
     }
-    if (hasAnyRank) denom += 1;
+    if (hasAnyRank) denom += w;
   }
 
   const items = Object.entries(labels).map(([code, name]) => ({
@@ -740,12 +888,12 @@ function calcRankPresence(rows, prefix, labels) {
 
 function calcSingle(rows, col, labels) {
   const answered = rows.filter((r) => str(r[col]) !== "");
-  const denom = answered.length;
+  const denom = sumWeights(answered);
   const counts = {};
   for (const code of Object.keys(labels)) counts[code] = 0;
   for (const r of answered) {
     const v = str(r[col]);
-    if (v in counts) counts[v] += 1;
+    if (v in counts) counts[v] += getRowWeight(r);
   }
   const items = Object.entries(labels).map(([code, name]) => ({
     code: Number(code),
@@ -827,7 +975,7 @@ function renderOverview() {
   const hintNode = document.getElementById("overviewHint");
   if (hintNode) hintNode.textContent = `数据更新至 ${fmtTime(lastUploadAt)}`;
   const sampleNode = document.getElementById("overviewSampleLine");
-  if (sampleNode) sampleNode.textContent = `总样本：${analysisRows.length}`;
+  if (sampleNode) sampleNode.textContent = `总样本：${fmtCount(sumWeights(analysisRows))}`;
 
   const top1 = calcRankTop1(analysisRows, "q4", CHANNELS);
   const sortedTop1 = [...top1.items].sort((a, b) => b.ratio - a.ratio);
@@ -1041,7 +1189,7 @@ function renderCross() {
 
   const filtered = applyGroupedFilters(analysisRows, filterDefs);
   const overall = getQuestionDistribution(filtered, qDef);
-  drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${filtered.length}）`, {
+  drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${fmtCount(sumWeights(filtered))}）`, {
     preserveOrder: true,
   });
 
@@ -1064,7 +1212,7 @@ function renderCross() {
     const byCode = new Map(dist.items.map((x) => [x.code, x]));
 
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${label}</td><td>${groupRows.length}</td>${sortedCols
+    tr.innerHTML = `<td>${label}</td><td>${fmtCount(sumWeights(groupRows))}</td>${sortedCols
       .map((col) => `<td>${fmtPct((byCode.get(col.code) || { ratio: 0 }).ratio)}</td>`)
       .join("")}`;
     tbody.appendChild(tr);
@@ -1073,7 +1221,7 @@ function renderCross() {
 
 function renderUploadMeta() {
   const msg = [
-    `分析样本（继续作答）: ${analysisRows.length}`,
+    `分析样本（继续作答）: ${fmtCount(sumWeights(analysisRows))}${isWeightEnabled() ? "（加权）" : ""}`,
     `数据更新至: ${fmtTime(lastUploadAt)}`,
   ].join("\n");
   document.getElementById("sidebarMeta").textContent = msg;
@@ -1317,6 +1465,10 @@ function renderRulesPanel() {
   const requiredFields = document.getElementById("ruleRequiredFields");
   const autoHint = document.getElementById("ruleAutoHint");
   const ruleStats = document.getElementById("ruleStats");
+  const weightEnable = document.getElementById("weightEnable");
+  const weightDims = document.getElementById("weightDims");
+  const weightTargets = document.getElementById("weightTargets");
+  const weightStats = document.getElementById("weightStats");
 
   if (!terminateField || !terminateValue || !durationField || !enableDuration || !minDuration || !enableRequired || !requiredFields || !autoHint || !ruleStats) return;
 
@@ -1339,7 +1491,42 @@ function renderRulesPanel() {
     `最终分析样本：${sampleStats.final}`,
   ].join("<br/>");
 
+  if (weightEnable && weightDims && weightTargets && weightStats) {
+    const candidates = getWeightDimCandidates();
+    setSelectOptions("weightDims", candidates.map((x) => ({ id: x.id, name: x.name })));
+    weightEnable.checked = !!weightConfig.enabled;
+    [...weightDims.options].forEach((o) => {
+      o.selected = (weightConfig.dims || []).includes(o.value);
+    });
+    weightTargets.value = str(weightConfig.targetsText || "");
+    weightStats.innerHTML = `状态：${weightState.message}`;
+  }
+
   renderFrameworkBulkPanel();
+}
+
+function saveWeightFromPanel() {
+  const weightEnable = document.getElementById("weightEnable");
+  const weightDims = document.getElementById("weightDims");
+  const weightTargets = document.getElementById("weightTargets");
+  if (!weightEnable || !weightDims || !weightTargets) return;
+  let parsed = {};
+  try {
+    parsed = parseWeightTargets(weightTargets.value);
+  } catch (e) {
+    alert(`加权目标解析失败：${e.message}`);
+    return;
+  }
+  weightConfig = {
+    ...weightConfig,
+    enabled: !!weightEnable.checked,
+    dims: [...weightDims.selectedOptions].map((o) => o.value),
+    targetsText: JSON.stringify(parsed, null, 2),
+  };
+  saveWeightConfig();
+  recomputeAnalysisRows();
+  renderAll();
+  alert("加权配置已保存并重算");
 }
 
 function parseFrameworkBulkText(text) {
@@ -1649,6 +1836,8 @@ function bindActions() {
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
   document.getElementById("btnSaveRules").addEventListener("click", saveRulesFromPanel);
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
+  const btnSaveWeight = document.getElementById("btnSaveWeight");
+  if (btnSaveWeight) btnSaveWeight.addEventListener("click", saveWeightFromPanel);
   document.getElementById("btnGenerateWordcloud").addEventListener("click", renderWordcloudPanel);
 }
 
@@ -1747,10 +1936,11 @@ function renderWordcloudPanel() {
   const counter = new Map();
   let sourceCount = 0; // 有效文本条数（按字段粒度）
   for (const row of analysisRows) {
+    const rw = getRowWeight(row);
     for (const field of selectedFields) {
       const raw = str(row[field]);
       if (!raw) continue;
-      sourceCount += 1;
+      sourceCount += rw;
       const words = [
         ...tokenizeZh(raw),
         ...extractContinuousPhrases(raw, minLen, maxLen),
@@ -1761,7 +1951,7 @@ function renderWordcloudPanel() {
         if (w.length < minLen || w.length > maxLen) continue;
         if (/^\d+$/.test(w)) continue;
         if (stopwords.has(w)) continue;
-        counter.set(w, (counter.get(w) || 0) + 1);
+        counter.set(w, (counter.get(w) || 0) + rw);
       }
     }
   }
@@ -1783,7 +1973,7 @@ function renderWordcloudPanel() {
   const fieldNames = selectedFields.map((f) => `${f}（${openConfig[f] || f}）`).join("、");
   topNode.innerHTML = [
     `题目：${fieldNames}`,
-    `样本量：${sourceCount}`,
+    `样本量：${fmtCount(sourceCount)}`,
     `词长范围：${minLen}-${maxLen}字`,
     `词数：${words.length}`,
     `Top20：${words.slice(0, 20).map((x) => `${x.name}(${x.value})`).join("、")}`,
@@ -1857,6 +2047,7 @@ async function bootstrap() {
   loadSingleConfig();
   loadOpenConfig();
   loadFrameworkConfig();
+  loadWeightConfig();
   loadRules(getHeaders());
   recomputeAnalysisRows();
 
