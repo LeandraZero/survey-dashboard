@@ -1119,6 +1119,35 @@ function toOptionLines(labels) {
     .join("\n");
 }
 
+function isLikelySingleQuestion(qid) {
+  const samples = rawRows.slice(0, 1500);
+  let nonEmpty = 0;
+  const uniq = new Set();
+  let longTextCount = 0;
+  for (const row of samples) {
+    const v = str(row[qid]);
+    if (!v) continue;
+    nonEmpty += 1;
+    uniq.add(v);
+    if (v.length > 16) longTextCount += 1;
+    if (uniq.size > 80) return false;
+  }
+  if (!nonEmpty) return false;
+  if (longTextCount / nonEmpty > 0.35 && uniq.size / nonEmpty > 0.4) return false;
+  return true;
+}
+
+function getSingleQuestionCandidates() {
+  const qHeaders = getHeaders().filter((h) => /^q\d+$/.test(h));
+  const optionIds = new Set(getOptionQuestionDefs().map((x) => x.id));
+  const openIds = new Set(Object.keys(openConfig || {}));
+  const configured = Object.keys(singleConfig || {}).filter((qid) => Object.keys(singleConfig[qid]?.labels || {}).length > 0);
+
+  const inferred = qHeaders.filter((qid) => !optionIds.has(qid) && !openIds.has(qid) && isLikelySingleQuestion(qid));
+  const merged = Array.from(new Set([...configured, ...inferred]));
+  return merged.sort((a, b) => Number(a.replace("q", "")) - Number(b.replace("q", "")));
+}
+
 function renderSingleConfigPanel() {
   const fieldSelect = document.getElementById("singleConfigField");
   const titleInput = document.getElementById("singleConfigTitle");
@@ -1126,9 +1155,7 @@ function renderSingleConfigPanel() {
   const preview = document.getElementById("singleConfigPreview");
   if (!fieldSelect || !titleInput || !optionsInput || !preview) return;
 
-  const headerCandidates = getHeaders().filter((h) => /^q\d+$/.test(h));
-  const singleKeys = Array.from(new Set([...Object.keys(singleConfig), ...headerCandidates]))
-    .sort((a, b) => Number(a.replace("q", "")) - Number(b.replace("q", "")));
+  const singleKeys = getSingleQuestionCandidates();
 
   const prev = fieldSelect.value;
   setSelectOptionsWithRaw("singleConfigField", singleKeys);
