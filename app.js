@@ -1293,7 +1293,7 @@ function parseFrameworkBulkText(text) {
 }
 
 function applyFrameworkItems(items) {
-  let singleUpdated = 0;
+  let titleUpdated = 0;
   let openUpdated = 0;
   for (const item of items) {
     const qid = item.qid;
@@ -1301,23 +1301,18 @@ function applyFrameworkItems(items) {
     const fullTitle = titleText ? `Q${Number(qid.slice(1))} ${titleText}` : `Q${Number(qid.slice(1))}`;
     const t = str(item.type || "");
     const isOpen = /开放|填空|文本|主观/.test(t);
-    const isSingle = /单选|评分|量表|打分/.test(t);
-
+    const prev = singleConfig[qid] || { labels: {} };
+    singleConfig[qid] = {
+      title: fullTitle,
+      labels: prev.labels || {},
+    };
+    titleUpdated += 1;
     if (isOpen) {
       openConfig[qid] = fullTitle;
       openUpdated += 1;
-      continue;
-    }
-    if (isSingle || singleConfig[qid]) {
-      const prev = singleConfig[qid] || { labels: {} };
-      singleConfig[qid] = {
-        title: fullTitle,
-        labels: prev.labels || {},
-      };
-      singleUpdated += 1;
     }
   }
-  return { singleUpdated, openUpdated };
+  return { titleUpdated, openUpdated };
 }
 
 function renderFrameworkBulkPanel() {
@@ -1351,7 +1346,7 @@ function bindFrameworkBulkEditor() {
     saveSingleConfig();
     saveOpenConfig();
     renderAll();
-    alert(`框架导入完成：识别 ${items.length} 题；更新单选题 ${applied.singleUpdated} 题；更新开放题 ${applied.openUpdated} 题。`);
+    alert(`框架导入完成：识别 ${items.length} 题；更新题目标题 ${applied.titleUpdated} 题；更新开放题 ${applied.openUpdated} 题。`);
   });
 }
 
