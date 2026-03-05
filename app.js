@@ -460,14 +460,44 @@ function rowMatchGroup(row, def, code) {
 }
 
 function getFilterOptions() {
-  const q34Labels = getSingleLabels("q34");
-  const q1Labels = getSingleLabels("q1");
-  const q29Labels = getSingleLabels("q29");
-  const q27Labels = getSingleLabels("q27");
+  const defs = getAnalysisQuestions();
+  const options = [{ id: "all", name: "不过滤", groupKey: "all", mode: "include", fn: () => true }];
+
+  for (const def of defs) {
+    const entries = Object.entries(def.labels || {}).sort((a, b) => Number(a[0]) - Number(b[0]));
+    for (const [code, label] of entries) {
+      if (def.type === "rank_top1") {
+        options.push({
+          id: `${def.id}:top1=${code}`,
+          name: `${def.name} Top1=${label}`,
+          groupKey: def.id,
+          fn: (r) => rowMatchGroup(r, def, code),
+        });
+        continue;
+      }
+      if (def.type === "multi") {
+        options.push({
+          id: `${def.id}:has=${code}`,
+          name: `${def.name} 包含：${label}`,
+          groupKey: def.id,
+          fn: (r) => rowMatchGroup(r, def, code),
+        });
+        continue;
+      }
+      options.push({
+        id: `${def.id}=${code}`,
+        name: `${def.name}=${label}`,
+        groupKey: def.id,
+        fn: (r) => rowMatchGroup(r, def, code),
+      });
+    }
+  }
+
   const q2AnyDiscuss = {
     id: "q2_any=1",
     name: "Q2有任意内容讨论（1-10）",
     groupKey: "q2_any",
+    mode: "include",
     fn: (r) => {
       for (let i = 1; i <= 10; i += 1) {
         if (hasQ2ByCode(r, i)) return true;
@@ -475,40 +505,8 @@ function getFilterOptions() {
       return false;
     },
   };
-  return [
-    { id: "all", name: "不过滤", groupKey: "all", mode: "include", fn: () => true },
-    ...Object.entries(q34Labels).map(([code, label]) => ({
-      id: `q34=${code}`,
-      name: `${getSingleTitle("q34", "Q34")}=${label}`,
-      groupKey: "q34",
-      fn: (r) => str(r.q34) === String(code),
-    })),
-    ...Object.entries(q1Labels).map(([code, label]) => ({
-      id: `q1=${code}`,
-      name: `${getSingleTitle("q1", "Q1")}=${label}`,
-      groupKey: "q1",
-      fn: (r) => str(r.q1) === String(code),
-    })),
-    ...Object.entries(q27Labels).map(([code, label]) => ({
-      id: `q27=${code}`,
-      name: `${getSingleTitle("q27", "Q27")}=${label}`,
-      groupKey: "q27",
-      fn: (r) => str(r.q27) === String(code),
-    })),
-    ...Object.entries(q29Labels).map(([code, label]) => ({
-      id: `q29=${code}`,
-      name: `${getSingleTitle("q29", "Q29")}=${label}`,
-      groupKey: "q29",
-      fn: (r) => str(r.q29) === String(code),
-    })),
-    q2AnyDiscuss,
-    ...Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
-      id: `q2_${code}=1`,
-      name: `Q2包含：${label}`,
-      groupKey: "q2",
-      fn: (r) => str(r[`q2_${code}_${findQ2ColumnSuffix(code, r)}`] || r[`q2_${code}`]) === "1" || hasQ2ByCode(r, Number(code)),
-    })),
-  ];
+  options.push(q2AnyDiscuss);
+  return options;
 }
 
 function getOptionQuestionDefs() {
