@@ -1671,6 +1671,109 @@ function saveWeightFromPanel() {
   alert("加权配置已保存并重算");
 }
 
+function splitBiLine(line) {
+  const t = String(line || "").trim();
+  if (!t) return [];
+  if (t.includes("\t")) return t.split("\t").map((x) => x.trim());
+  return t.split(/\s{2,}/).map((x) => x.trim());
+}
+
+function toNum(v) {
+  const n = Number(String(v || "").replace(/,/g, "").trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseBiWeightTable(text) {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (!lines.length) return null;
+
+  const rows = lines.map(splitBiLine).filter((x) => x.length >= 3);
+  const data = [];
+  let currentDim = "";
+  for (const cells of rows) {
+    const head = cells[0] || "";
+    const label = cells[1] || "";
+    const c = toNum(cells[2]);
+    const n = toNum(cells[3]);
+
+    if (head && !/row labels|维度/i.test(head)) currentDim = head;
+    const dim = currentDim || head;
+    if (!dim || /row labels/i.test(dim)) continue;
+    if (!label && !(dim === "整体" && cells[1] === "")) continue;
+    data.push({ dim, label, community: c, non: n });
+  }
+  if (!data.length) return null;
+
+  const getRows = (dimName) => data.filter((r) => r.dim === dimName);
+  const mapDist = (rowsIn, mapFn) => {
+    const outC = {};
+    const outN = {};
+    for (const r of rowsIn) {
+      const key = mapFn(r.label);
+      if (!key) continue;
+      outC[key] = (outC[key] || 0) + r.community;
+      outN[key] = (outN[key] || 0) + r.non;
+    }
+    const sumC = Object.values(outC).reduce((s, x) => s + x, 0) || 1;
+    const sumN = Object.values(outN).reduce((s, x) => s + x, 0) || 1;
+    const norm = (obj, sum) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, v / sum]));
+    return { community: norm(outC, sumC), non_community: norm(outN, sumN) };
+  };
+
+  const overallRow = getRows("整体")[0];
+  const totalC = overallRow ? overallRow.community : data.reduce((s, x) => s + x.community, 0);
+  const totalN = overallRow ? overallRow.non : data.reduce((s, x) => s + x.non, 0);
+  const communityPenetration = totalC + totalN > 0 ? totalC / (totalC + totalN) : 0.5;
+
+  const genderDist = mapDist(getRows("性别"), (l) => {
+    const s = str(l);
+    if (s.includes("男")) return "男";
+    if (s.includes("女")) return "女";
+    return "";
+  });
+  const ageDist = mapDist(getRows("年龄"), (l) => {
+    const s = str(l);
+    if (s.includes("19-25")) return "19-25";
+    if (s.includes("26-30")) return "26-30";
+    if (s.includes("31-35")) return "35+";
+    if (s.includes("35")) return "35+";
+    return "";
+  });
+  const advDist = mapDist(getRows("冒险等级2"), (l) => {
+    const s = str(l);
+    if (s.includes("0-30")) return "0-30";
+    if (s.includes("31-45") || s.includes("31-44")) return "31-44";
+    if (s.includes("46-60") || s.includes("45-60")) return "45-60";
+    return "";
+  });
+
+  return {
+    mode: "two_stage",
+    communityField: "q27",
+    communityYesCodes: ["1", "2", "3", "4"],
+    communityNoCodes: ["5"],
+    communityPenetration,
+    groupTargets: {
+      community: {
+        gender: genderDist.community,
+        age: ageDist.community,
+        adventure: advDist.community,
+        community_active: { 有: 1, 无: 0 },
+      },
+      non_community: {
+        gender: genderDist.non_community,
+        age: ageDist.non_community,
+        adventure: advDist.non_community,
+        community_active: { 有: 0, 无: 1 },
+      },
+    },
+    adventureField: "q36",
+  };
+}
+
 function parseFrameworkBulkText(text) {
   const raw = String(text || "").trim();
   if (!raw) return [];
@@ -1980,6 +2083,21 @@ function bindActions() {
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
   const btnSaveWeight = document.getElementById("btnSaveWeight");
   if (btnSaveWeight) btnSaveWeight.addEventListener("click", saveWeightFromPanel);
+  const btnParseWeightBi = document.getElementById("btnParseWeightBi");
+  if (btnParseWeightBi) {
+    btnParseWeightBi.addEventListener("click", () => {
+      const src = document.getElementById("weightBiInput");
+      const dst = document.getElementById("weightTargets");
+      if (!src || !dst) return;
+      const plan = parseBiWeightTable(src.value);
+      if (!plan) {
+        alert("未识别到有效BI表格，请检查粘贴格式");
+        return;
+      }
+      dst.value = JSON.stringify(plan, null, 2);
+      alert("已从BI表生成加权JSON，请检查后点“保存加权并重算”");
+    });
+  }
   document.getElementById("btnGenerateWordcloud").addEventListener("click", renderWordcloudPanel);
 }
 

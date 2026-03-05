@@ -169,7 +169,12 @@
                 目标分布（JSON）
                 <textarea id="weightTargets" rows="6" placeholder='{"q34":{"1":0.48,"2":0.52},"q33":{"15":0.2,"16":0.3}}'></textarea>
               </label>
+              <label class="rules-textarea-label">
+                BI大盘粘贴（维度/Row Labels/社区活跃/非社区活跃）
+                <textarea id="weightBiInput" rows="6" placeholder="粘贴BI导出的表格（支持TAB或多空格分隔）"></textarea>
+              </label>
               <div class="upload-actions">
+                <button id="btnParseWeightBi" class="ghost">从BI表生成JSON</button>
                 <button id="btnSaveWeight">保存加权并重算</button>
               </div>
               <div class="upload-log" id="weightStats"></div>
