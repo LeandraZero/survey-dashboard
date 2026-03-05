@@ -392,6 +392,18 @@ function getSingleTitle(qid, fallback = qid) {
   return (singleConfig[qid] && singleConfig[qid].title) || fallback;
 }
 
+function qidOrder(id) {
+  const m = String(id || "").match(/^q(\d+)/i);
+  return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
+}
+
+function sortByQid(a, b) {
+  const qa = qidOrder(a.id);
+  const qb = qidOrder(b.id);
+  if (qa !== qb) return qa - qb;
+  return String(a.name || a.id).localeCompare(String(b.name || b.id), "zh-CN");
+}
+
 function getAnalysisQuestions() {
   const optionDefs = getOptionQuestionDefs();
   const optionIds = new Set(optionDefs.map((x) => x.id));
@@ -409,7 +421,7 @@ function getAnalysisQuestions() {
     .filter((x) => !optionIds.has(x.id))
     .sort((a, b) => Number(a.id.replace("q", "")) - Number(b.id.replace("q", "")));
 
-  return [...optionDefs, ...singleDefs];
+  return [...optionDefs, ...singleDefs].sort(sortByQid);
 }
 
 function getAttrQuestions() {
@@ -423,7 +435,7 @@ function getAttrQuestions() {
   const questionDims = getAnalysisQuestions()
     .filter((q) => !baseIds.has(q.id))
     .map((q) => ({ ...q, name: `题目｜${q.name}` }));
-  return [...base, ...questionDims];
+  return [...base, ...questionDims].sort(sortByQid);
 }
 
 function rowMatchGroup(row, def, code) {
