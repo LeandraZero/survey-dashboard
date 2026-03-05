@@ -395,12 +395,38 @@ function getAnalysisQuestions() {
 }
 
 function getAttrQuestions() {
-  return [
-    { id: "q34", name: getSingleTitle("q34", "Q34"), col: "q34", labels: getSingleLabels("q34") },
-    { id: "q1", name: getSingleTitle("q1", "Q1"), col: "q1", labels: getSingleLabels("q1") },
-    { id: "q27", name: getSingleTitle("q27", "Q27"), col: "q27", labels: getSingleLabels("q27") },
-    { id: "q33", name: getSingleTitle("q33", "Q33"), col: "q33", labels: getSingleLabels("q33") },
+  const base = [
+    { id: "q34", name: `用户属性｜${getSingleTitle("q34", "Q34")}`, type: "single", col: "q34", labels: getSingleLabels("q34") },
+    { id: "q1", name: `用户属性｜${getSingleTitle("q1", "Q1")}`, type: "single", col: "q1", labels: getSingleLabels("q1") },
+    { id: "q27", name: `用户属性｜${getSingleTitle("q27", "Q27")}`, type: "single", col: "q27", labels: getSingleLabels("q27") },
+    { id: "q33", name: `用户属性｜${getSingleTitle("q33", "Q33")}`, type: "single", col: "q33", labels: getSingleLabels("q33") },
   ];
+  const baseIds = new Set(base.map((x) => x.id));
+  const questionDims = getAnalysisQuestions()
+    .filter((q) => !baseIds.has(q.id))
+    .map((q) => ({ ...q, name: `题目｜${q.name}` }));
+  return [...base, ...questionDims];
+}
+
+function rowMatchGroup(row, def, code) {
+  if (!def) return false;
+  const codeNum = Number(code);
+  if (def.type === "rank_top1") {
+    const cols = getOptionColumns(Object.keys(row), def.prefix);
+    for (const { code: c, col } of cols) {
+      const rank = toInt(row[col]);
+      if (rank === 1 && c === codeNum) return true;
+    }
+    return false;
+  }
+  if (def.type === "multi") {
+    const cols = getOptionColumns(Object.keys(row), def.prefix, def.id === "q2" ? 9 : Infinity);
+    for (const { code: c, col } of cols) {
+      if (c === codeNum && str(row[col]) === "1") return true;
+    }
+    return false;
+  }
+  return str(row[def.col]) === String(code);
 }
 
 function getFilterOptions() {
@@ -970,7 +996,7 @@ function renderCross() {
 
   const attrEntries = Object.entries(attrDef.labels);
   for (const [code, label] of attrEntries) {
-    const groupRows = filtered.filter((r) => str(r[attrDef.col]) === String(code));
+    const groupRows = filtered.filter((r) => rowMatchGroup(r, attrDef, code));
     if (!groupRows.length) continue;
     const dist = getQuestionDistribution(groupRows, qDef);
     const byCode = new Map(dist.items.map((x) => [x.code, x]));
