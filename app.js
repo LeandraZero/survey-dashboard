@@ -460,20 +460,6 @@ function rowMatchGroup(row, def, code) {
 }
 
 function getFilterOptions() {
-  const withExclude = (items) => {
-    const out = [];
-    for (const it of items) {
-      out.push({ ...it, mode: "include" });
-      out.push({
-        ...it,
-        id: `not:${it.id}`,
-        name: `排除｜${it.name}`,
-        mode: "exclude",
-      });
-    }
-    return out;
-  };
-
   const q34Labels = getSingleLabels("q34");
   const q1Labels = getSingleLabels("q1");
   const q29Labels = getSingleLabels("q29");
@@ -491,37 +477,37 @@ function getFilterOptions() {
   };
   return [
     { id: "all", name: "不过滤", groupKey: "all", mode: "include", fn: () => true },
-    ...withExclude(Object.entries(q34Labels).map(([code, label]) => ({
+    ...Object.entries(q34Labels).map(([code, label]) => ({
       id: `q34=${code}`,
       name: `${getSingleTitle("q34", "Q34")}=${label}`,
       groupKey: "q34",
       fn: (r) => str(r.q34) === String(code),
-    }))),
-    ...withExclude(Object.entries(q1Labels).map(([code, label]) => ({
+    })),
+    ...Object.entries(q1Labels).map(([code, label]) => ({
       id: `q1=${code}`,
       name: `${getSingleTitle("q1", "Q1")}=${label}`,
       groupKey: "q1",
       fn: (r) => str(r.q1) === String(code),
-    }))),
-    ...withExclude(Object.entries(q27Labels).map(([code, label]) => ({
+    })),
+    ...Object.entries(q27Labels).map(([code, label]) => ({
       id: `q27=${code}`,
       name: `${getSingleTitle("q27", "Q27")}=${label}`,
       groupKey: "q27",
       fn: (r) => str(r.q27) === String(code),
-    }))),
-    ...withExclude(Object.entries(q29Labels).map(([code, label]) => ({
+    })),
+    ...Object.entries(q29Labels).map(([code, label]) => ({
       id: `q29=${code}`,
       name: `${getSingleTitle("q29", "Q29")}=${label}`,
       groupKey: "q29",
       fn: (r) => str(r.q29) === String(code),
-    }))),
-    ...withExclude([q2AnyDiscuss]),
-    ...withExclude(Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
+    })),
+    q2AnyDiscuss,
+    ...Object.entries(Q2_CATEGORIES).map(([code, label]) => ({
       id: `q2_${code}=1`,
       name: `Q2包含：${label}`,
       groupKey: "q2",
       fn: (r) => str(r[`q2_${code}_${findQ2ColumnSuffix(code, r)}`] || r[`q2_${code}`]) === "1" || hasQ2ByCode(r, Number(code)),
-    }))),
+    })),
   ];
 }
 
@@ -960,13 +946,28 @@ function getSelectedFilterDefs() {
   const filterOptions = getFilterOptions();
   const node = document.getElementById("analysisFilter");
   const selected = [...node.selectedOptions].map((x) => x.value);
+  const mode = getCurrentFilterMode();
   if (!selected.length || (selected.length === 1 && selected[0] === "all")) {
     return [filterOptions[0]];
   }
   return selected
     .filter((id) => id !== "all")
     .map((id) => filterOptions.find((x) => x.id === id))
+    .map((x) => (x ? { ...x, mode } : x))
     .filter(Boolean);
+}
+
+function getCurrentFilterMode() {
+  const active = document.querySelector("#analysisFilterMode .mode-btn.active");
+  return active?.dataset.mode === "exclude" ? "exclude" : "include";
+}
+
+function setFilterMode(mode) {
+  const node = document.getElementById("analysisFilterMode");
+  if (!node) return;
+  node.querySelectorAll(".mode-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
 }
 
 function applyGroupedFilters(rows, filterDefs) {
@@ -1611,6 +1612,15 @@ function bindActions() {
   ["analysisQuestion", "analysisAttr", "analysisFilter"].forEach((id) => {
     document.getElementById(id).addEventListener("change", renderCross);
   });
+  const modeNode = document.getElementById("analysisFilterMode");
+  if (modeNode) {
+    modeNode.addEventListener("click", (e) => {
+      const btn = e.target.closest(".mode-btn");
+      if (!btn) return;
+      setFilterMode(btn.dataset.mode === "exclude" ? "exclude" : "include");
+      renderCross();
+    });
+  }
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
   document.getElementById("btnSaveRules").addEventListener("click", saveRulesFromPanel);
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
@@ -1830,6 +1840,7 @@ async function bootstrap() {
   setSelectOptions("analysisFilter", getFilterOptions().map((x) => ({ id: x.id, name: x.name })));
   const filterNode = document.getElementById("analysisFilter");
   if (filterNode && filterNode.options.length) filterNode.options[0].selected = true;
+  setFilterMode("include");
 
   bindTabs();
   bindActions();

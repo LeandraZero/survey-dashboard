@@ -625,6 +625,24 @@ textarea {
   color: #7a8798;
 }
 
+.filter-mode {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.mode-btn {
+  background: #eef2fb;
+  color: #334155;
+  box-shadow: none;
+  padding: 6px 10px;
+  min-height: 30px;
+}
+
+.mode-btn.active {
+  background: #092e72;
+  color: #fff;
+}
+
 .table-actions {
   margin: 8px 0 10px;
 }
