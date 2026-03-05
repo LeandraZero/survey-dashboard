@@ -4,6 +4,7 @@ const SINGLE_CONFIG_KEY = "survey_single_config_v1";
 const OPEN_CONFIG_KEY = "survey_open_config_v1";
 const FRAMEWORK_CONFIG_KEY = "survey_framework_config_v1";
 const WEIGHT_CONFIG_KEY = "survey_weight_config_v1";
+const WEIGHT_HISTORY_KEY = "survey_weight_history_v1";
 const ACCESS_PASSWORD = "miyoushe2026";
 const ACCESS_SESSION_KEY = "survey_access_granted_v1";
 const DB_NAME = "survey_dashboard_db";
@@ -166,6 +167,7 @@ let weightConfig = {
   capMax: 5,
 };
 let weightState = { applied: false, message: "未启用" };
+let weightHistory = [];
 let appStarted = false;
 
 const WEIGHT_DIM_VALUES = {
@@ -456,6 +458,19 @@ function loadWeightConfig() {
 
 function saveWeightConfig() {
   localStorage.setItem(WEIGHT_CONFIG_KEY, JSON.stringify(weightConfig));
+}
+
+function loadWeightHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WEIGHT_HISTORY_KEY) || "[]");
+    weightHistory = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    weightHistory = [];
+  }
+}
+
+function saveWeightHistory() {
+  localStorage.setItem(WEIGHT_HISTORY_KEY, JSON.stringify(weightHistory.slice(0, 10)));
 }
 
 function getWeightDimCandidates() {
@@ -1668,6 +1683,8 @@ function renderRulesPanel() {
   const ruleStats = document.getElementById("ruleStats");
   const weightEnable = document.getElementById("weightEnable");
   const weightStats = document.getElementById("weightStats");
+  const dimBox = document.getElementById("weightDimsManual");
+  const historySelect = document.getElementById("weightHistorySelect");
 
   if (!terminateField || !terminateValue || !durationField || !enableDuration || !minDuration || !enableRequired || !requiredFields || !autoHint || !ruleStats) return;
 
@@ -1692,11 +1709,25 @@ function renderRulesPanel() {
 
   if (weightEnable && weightStats) {
     weightEnable.checked = !!weightConfig.enabled;
+    if (dimBox) {
+      const dims = new Set(weightConfig.dims || []);
+      dimBox.querySelectorAll("input[type='checkbox']").forEach((cb) => {
+        cb.checked = dims.has(cb.value);
+      });
+    }
     weightStats.innerHTML = `状态：${weightState.message}`;
     try {
       buildManualWeightGrid(parseWeightPlan(weightConfig.targetsText || ""));
     } catch {
       buildManualWeightGrid({});
+    }
+    if (historySelect) {
+      historySelect.innerHTML = "";
+      const options = weightHistory.map((h) => ({
+        id: h.id,
+        name: `${fmtTime(h.savedAt)}｜${(h.dims || []).join("+")}${h.enabled ? "｜启用" : "｜停用"}`,
+      }));
+      setSelectOptions("weightHistorySelect", options);
     }
   }
 
@@ -1705,18 +1736,58 @@ function renderRulesPanel() {
 
 function saveWeightFromPanel() {
   const weightEnable = document.getElementById("weightEnable");
+  const dimBox = document.getElementById("weightDimsManual");
   if (!weightEnable) return;
   const parsed = buildPlanFromManualInputs();
+  const selectedDims = dimBox
+    ? [...dimBox.querySelectorAll("input[type='checkbox']:checked")].map((x) => x.value)
+    : Object.keys(WEIGHT_DIM_VALUES);
+  if (!selectedDims.length) {
+    alert("请至少选择一个加权维度");
+    return;
+  }
   weightConfig = {
     ...weightConfig,
     enabled: !!weightEnable.checked,
-    dims: Object.keys(WEIGHT_DIM_VALUES),
+    dims: selectedDims,
     targetsText: JSON.stringify(parsed, null, 2),
+  };
+  saveWeightConfig();
+  weightHistory.unshift({
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    savedAt: new Date().toISOString(),
+    enabled: weightConfig.enabled,
+    dims: [...weightConfig.dims],
+    targetsText: weightConfig.targetsText,
+  });
+  saveWeightHistory();
+  recomputeAnalysisRows();
+  renderAll();
+  alert("加权配置已保存并重算");
+}
+
+function loadAndApplyWeightHistory() {
+  const sel = document.getElementById("weightHistorySelect");
+  if (!sel || !sel.value) return;
+  const item = weightHistory.find((x) => x.id === sel.value);
+  if (!item) return;
+  weightConfig = {
+    ...weightConfig,
+    enabled: !!item.enabled,
+    dims: Array.isArray(item.dims) ? item.dims : [...weightConfig.dims],
+    targetsText: str(item.targetsText || weightConfig.targetsText),
   };
   saveWeightConfig();
   recomputeAnalysisRows();
   renderAll();
-  alert("加权配置已保存并重算");
+}
+
+function deleteWeightHistoryItem() {
+  const sel = document.getElementById("weightHistorySelect");
+  if (!sel || !sel.value) return;
+  weightHistory = weightHistory.filter((x) => x.id !== sel.value);
+  saveWeightHistory();
+  renderRulesPanel();
 }
 
 function splitBiLine(line) {
@@ -2131,6 +2202,10 @@ function bindActions() {
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
   const btnSaveWeight = document.getElementById("btnSaveWeight");
   if (btnSaveWeight) btnSaveWeight.addEventListener("click", saveWeightFromPanel);
+  const btnLoadWeightHistory = document.getElementById("btnLoadWeightHistory");
+  if (btnLoadWeightHistory) btnLoadWeightHistory.addEventListener("click", loadAndApplyWeightHistory);
+  const btnDeleteWeightHistory = document.getElementById("btnDeleteWeightHistory");
+  if (btnDeleteWeightHistory) btnDeleteWeightHistory.addEventListener("click", deleteWeightHistoryItem);
   document.getElementById("btnGenerateWordcloud").addEventListener("click", renderWordcloudPanel);
 }
 
@@ -2341,6 +2416,7 @@ async function bootstrap() {
   loadOpenConfig();
   loadFrameworkConfig();
   loadWeightConfig();
+  loadWeightHistory();
   loadRules(getHeaders());
   recomputeAnalysisRows();
 

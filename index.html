@@ -160,6 +160,15 @@
                 <input id="weightEnable" type="checkbox" />
                 启用加权（全站按加权值展示）
               </label>
+              <label>
+                本次加权维度（可多选）
+                <div class="rules-grid" id="weightDimsManual">
+                  <label class="rule-inline"><input type="checkbox" value="gender" checked />性别</label>
+                  <label class="rule-inline"><input type="checkbox" value="age" checked />年龄</label>
+                  <label class="rule-inline"><input type="checkbox" value="adventure" checked />冒险等阶</label>
+                  <label class="rule-inline"><input type="checkbox" value="community_active" checked />社区活跃</label>
+                </div>
+              </label>
               <div class="chart-card" style="padding:10px;">
                 <h4 style="margin:0 0 8px 0;font-size:14px;">手动输入加权目标</h4>
                 <div class="rules-grid">
@@ -172,6 +181,19 @@
               </div>
               <div class="upload-actions">
                 <button id="btnSaveWeight">保存加权并重算</button>
+              </div>
+              <div class="chart-card" style="padding:10px;">
+                <h4 style="margin:0 0 8px 0;font-size:14px;">历史加权配置</h4>
+                <div class="rules-grid">
+                  <label>
+                    历史记录
+                    <select id="weightHistorySelect"></select>
+                  </label>
+                </div>
+                <div class="upload-actions">
+                  <button id="btnLoadWeightHistory" class="ghost">加载并应用</button>
+                  <button id="btnDeleteWeightHistory" class="ghost">删除记录</button>
+                </div>
               </div>
               <div class="upload-log" id="weightStats"></div>
             </div>
