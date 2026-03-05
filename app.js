@@ -452,18 +452,12 @@ function saveWeightConfig() {
 }
 
 function getWeightDimCandidates() {
-  const baseDims = [
+  return [
     { id: "gender", name: "性别（男女）" },
     { id: "age", name: "年龄（19-25 / 26-30 / 35+）" },
     { id: "adventure", name: "冒险等阶（0-30 / 31-44 / 45-60）" },
     { id: "community_active", name: "社区活跃（有/无）" },
   ];
-  const qDims = Object.keys(singleConfig)
-    .filter((qid) => /^q\d+$/.test(qid))
-    .filter((qid) => Object.keys(getSingleLabels(qid)).length >= 2)
-    .sort((a, b) => Number(a.replace("q", "")) - Number(b.replace("q", "")))
-    .map((qid) => ({ id: qid, name: getSingleTitle(qid, qid.toUpperCase()) }));
-  return [...baseDims, ...qDims];
 }
 
 function parseWeightTargets(text) {
