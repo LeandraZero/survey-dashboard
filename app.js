@@ -802,7 +802,7 @@ function rowMatchGroup(row, def, code) {
   if (!def) return false;
   const codeNum = Number(code);
   if (def.type === "rank_top1") {
-    const cols = getOptionColumns(Object.keys(row), def.prefix);
+    const cols = getOptionColumns(getHeaders(), def.prefix);
     for (const { code: c, col } of cols) {
       const rank = toInt(row[col]);
       if (rank === 1 && c === codeNum) return true;
@@ -810,7 +810,7 @@ function rowMatchGroup(row, def, code) {
     return false;
   }
   if (def.type === "multi") {
-    const cols = getOptionColumns(Object.keys(row), def.prefix, def.id === "q2" ? 9 : Infinity);
+    const cols = getOptionColumns(getHeaders(), def.prefix, def.id === "q2" ? 9 : Infinity);
     for (const { code: c, col } of cols) {
       if (c === codeNum && str(row[col]) === "1") return true;
     }
@@ -1021,7 +1021,7 @@ function getOptionColumns(headers, prefix, maxCode = Infinity) {
 
 function calcMulti(rows, prefix, labels, maxCode = Infinity) {
   if (!rows.length) return { denominator: 0, items: [] };
-  const cols = getOptionColumns(Object.keys(rows[0]), prefix, maxCode);
+  const cols = getOptionColumns(getHeaders(), prefix, maxCode);
   const answered = rows.filter((r) => cols.some((x) => str(r[x.col]) !== ""));
   const denom = sumWeights(answered);
   const counts = {};
@@ -1046,7 +1046,7 @@ function calcMulti(rows, prefix, labels, maxCode = Infinity) {
 
 function calcRankTop1(rows, prefix, labels) {
   if (!rows.length) return { denominator: 0, items: [] };
-  const cols = getOptionColumns(Object.keys(rows[0]), prefix);
+  const cols = getOptionColumns(getHeaders(), prefix);
   const counts = {};
   for (const code of Object.keys(labels)) counts[code] = 0;
 
@@ -1075,7 +1075,7 @@ function calcRankTop1(rows, prefix, labels) {
 
 function calcRankPresence(rows, prefix, labels) {
   if (!rows.length) return { denominator: 0, items: [] };
-  const cols = getOptionColumns(Object.keys(rows[0]), prefix);
+  const cols = getOptionColumns(getHeaders(), prefix);
   const counts = {};
   for (const code of Object.keys(labels)) counts[code] = 0;
 
@@ -1224,7 +1224,7 @@ function renderOverviewSceneGrid() {
     const top1Sorted = [...top1.items].sort((a, b) => b.ratio - a.ratio);
     const mysRank = top1Sorted.findIndex((x) => x.name === "米游社");
     const mys = top1Sorted.find((x) => x.name === "米游社");
-    const channels = calcRankPresence(analysisRows, scene.rank, CHANNELS).items.sort((a, b) => b.ratio - a.ratio);
+    const channels = calcRankTop1(analysisRows, scene.rank, CHANNELS).items.sort((a, b) => b.ratio - a.ratio);
     return {
       ...scene,
       top3: top1Sorted.slice(0, 3),
@@ -1256,7 +1256,7 @@ function renderOverviewSceneGrid() {
         </div>`,
       )
       .join("");
-    tooltip.innerHTML = `<div class="scene-tip-title">${scene.name} 渠道占比</div><div class="bar-rows bar-rows-dark">${bars}</div>`;
+    tooltip.innerHTML = `<div class="scene-tip-title">${scene.name} 首选渠道占比</div><div class="bar-rows bar-rows-dark">${bars}</div>`;
     tooltip.style.display = "block";
     const margin = 12;
     const gap = 14;
