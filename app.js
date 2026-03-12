@@ -345,6 +345,10 @@ function hasQ2ByCode(row, code) {
   return Object.keys(row).some((k) => k.startsWith(`q2_${code}_`) && str(row[k]) === "1");
 }
 
+function hasQ2AllDiscuss(row) {
+  return hasQ2ByCode(row, 10);
+}
+
 function isDataRow(row) {
   return /^\d+$/.test(str(row.id));
 }
@@ -811,6 +815,9 @@ function rowMatchGroup(row, def, code) {
   }
   if (def.type === "multi") {
     const cols = getOptionColumns(getHeaders(), def.prefix, def.id === "q2" ? 9 : Infinity);
+    if (def.id === "q2" && codeNum >= 1 && codeNum <= 9 && hasQ2AllDiscuss(row)) {
+      return true;
+    }
     for (const { code: c, col } of cols) {
       if (c === codeNum && str(row[col]) === "1") return true;
     }
@@ -890,11 +897,15 @@ function getOptionQuestionDefs() {
 
   const defs = [];
   for (const [qid, q] of questionMap.entries()) {
-    const labels = Object.fromEntries(
+    let labels = Object.fromEntries(
       Object.entries(q.options)
         .sort((a, b) => Number(a[0]) - Number(b[0]))
         .map(([k, v]) => [Number(k), v]),
     );
+    // Q2 用于讨论内容分类时，仅保留 1-9 类目；“10=以上都讨论”按展开口径并入 1-9。
+    if (qid === "q2") {
+      labels = Object.fromEntries(Object.entries(labels).filter(([k]) => Number(k) >= 1 && Number(k) <= 9));
+    }
     const isRank = inferRankQuestion(q.columns);
     defs.push({
       id: qid,
@@ -1022,16 +1033,30 @@ function getOptionColumns(headers, prefix, maxCode = Infinity) {
 function calcMulti(rows, prefix, labels, maxCode = Infinity) {
   if (!rows.length) return { denominator: 0, items: [] };
   const cols = getOptionColumns(getHeaders(), prefix, maxCode);
-  const answered = rows.filter((r) => cols.some((x) => str(r[x.col]) !== ""));
+  const isQ2 = prefix === "q2";
+  const q2AllDiscussCol = isQ2 ? getOptionColumns(getHeaders(), prefix, 10).find((x) => x.code === 10)?.col : "";
+  const answered = rows.filter((r) => {
+    const hasMain = cols.some((x) => str(r[x.col]) !== "");
+    if (!isQ2) return hasMain;
+    return hasMain || (q2AllDiscussCol && str(r[q2AllDiscussCol]) !== "");
+  });
   const denom = sumWeights(answered);
   const counts = {};
   for (const code of Object.keys(labels)) counts[code] = 0;
 
   for (const r of answered) {
     const w = getRowWeight(r);
+    const selected = new Set();
     for (const { code, col } of cols) {
       if (!(code in labels)) continue;
-      if (str(r[col]) === "1") counts[code] += w;
+      if (str(r[col]) === "1") selected.add(code);
+    }
+    // Q2 选“以上都讨论(10)”时，按 1-9 全选口径并入。
+    if (isQ2 && q2AllDiscussCol && str(r[q2AllDiscussCol]) === "1") {
+      Object.keys(labels).forEach((k) => selected.add(Number(k)));
+    }
+    for (const code of selected) {
+      if (code in labels) counts[code] += w;
     }
   }
 
@@ -1405,9 +1430,7 @@ function renderCross() {
 
   const filtered = applyGroupedFilters(analysisRows, filterDefs);
   const overall = getQuestionDistribution(filtered, qDef);
-  drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${fmtCount(sumWeights(filtered))}）`, {
-    preserveOrder: true,
-  });
+  drawBarChart("chartAnalysis", overall.items, `${qDef.name}（样本: ${fmtCount(sumWeights(filtered))}）`);
 
   const sortedCols = [...overall.items].sort((a, b) => b.ratio - a.ratio);
   const thead = document.querySelector("#crossTable thead");
