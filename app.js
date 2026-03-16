@@ -24,6 +24,32 @@ const DEFAULT_RULES = {
   requiredFields: [],
 };
 
+const DEFAULT_WEIGHT_PLAN = {
+  mode: "two_stage",
+  communityField: "q27",
+  communityYesCodes: ["1", "2", "3", "4"],
+  communityNoCodes: ["5"],
+  communityPenetration: 0.3687,
+  groupTargets: {
+    community: {
+      gender: { 男: 0.5861, 女: 0.4097, 未知: 0.0041 },
+      age: { "19-25": 0.3031, "26-30": 0.1377, "31-35": 0.0702, "35+": 0.4762, 未知: 0.0128 },
+      adventure: { "0-30": 0.0199, "31-45": 0.0351, "46-60": 0.945 },
+      spend: { 大R: 0.0125, 中R: 0.1129, 小R: 0.7405, 无付费: 0.1341 },
+      community_active: { 有: 1, 无: 0 },
+    },
+    non_community: {
+      gender: { 男: 0.4887, 女: 0.4845, 未知: 0.0269 },
+      age: { "19-25": 0.2137, "26-30": 0.0831, "31-35": 0.0563, "35+": 0.6058, 未知: 0.0411 },
+      adventure: { "0-30": 0.1515, "31-45": 0.115, "46-60": 0.7335 },
+      spend: { 大R: 0.0035, 中R: 0.0423, 小R: 0.5783, 无付费: 0.3759 },
+      community_active: { 有: 0, 无: 1 },
+    },
+  },
+  adventureField: "level",
+  spendField: "spend_level",
+};
+
 const CHANNELS = {
   1: "抖音",
   2: "B站",
@@ -141,27 +167,8 @@ let openConfig = { q32: "Q32 平台期待（开放题）" };
 let frameworkConfig = { raw: "", items: [], updatedAt: "" };
 let weightConfig = {
   enabled: false,
-  dims: ["gender", "age", "adventure", "community_active"],
-  targetsText: JSON.stringify({
-    mode: "two_stage",
-    communityField: "q27",
-    communityYesCodes: ["1", "2", "3", "4"],
-    communityNoCodes: ["5"],
-    penetration: { community: 0.62, non_community: 0.38 },
-    groupTargets: {
-      community: {
-        gender: { "男": 0.6, "女": 0.4 },
-        age: { "19-25": 0.5, "26-30": 0.35, "35+": 0.15 },
-        adventure: { "0-30": 0.2, "31-44": 0.35, "45-60": 0.45 },
-      },
-      non_community: {
-        gender: { "男": 0.55, "女": 0.45 },
-        age: { "19-25": 0.45, "26-30": 0.35, "35+": 0.2 },
-        adventure: { "0-30": 0.25, "31-44": 0.4, "45-60": 0.35 },
-      },
-    },
-    adventureField: "q36",
-  }, null, 2),
+  dims: ["gender", "age", "adventure", "spend"],
+  targetsText: JSON.stringify(DEFAULT_WEIGHT_PLAN, null, 2),
   maxIter: 24,
   capMin: 0.2,
   capMax: 5,
@@ -171,10 +178,19 @@ let weightHistory = [];
 let appStarted = false;
 
 const WEIGHT_DIM_VALUES = {
-  gender: ["男", "女"],
-  age: ["19-25", "26-30", "35+"],
-  adventure: ["0-30", "31-44", "45-60"],
+  gender: ["男", "女", "未知"],
+  age: ["19-25", "26-30", "31-35", "35+", "未知"],
+  adventure: ["0-30", "31-45", "46-60", "未知"],
+  spend: ["大R", "中R", "小R", "无付费", "未知"],
   community_active: ["有", "无"],
+};
+
+const WEIGHT_DIM_LABELS = {
+  gender: "性别",
+  age: "年龄",
+  adventure: "冒险等级2",
+  spend: "消费等级",
+  community_active: "社区活跃",
 };
 
 function unlockApp() {
@@ -479,9 +495,10 @@ function saveWeightHistory() {
 
 function getWeightDimCandidates() {
   return [
-    { id: "gender", name: "性别（男女）" },
-    { id: "age", name: "年龄（19-25 / 26-30 / 35+）" },
-    { id: "adventure", name: "冒险等阶（0-30 / 31-44 / 45-60）" },
+    { id: "gender", name: "性别（男 / 女 / 未知）" },
+    { id: "age", name: "年龄（19-25 / 26-30 / 31-35 / 35+ / 未知）" },
+    { id: "adventure", name: "冒险等级2（0-30 / 31-45 / 46-60 / 未知）" },
+    { id: "spend", name: "消费等级（大R / 中R / 小R / 无付费 / 未知）" },
     { id: "community_active", name: "社区活跃（有/无）" },
   ];
 }
@@ -508,7 +525,7 @@ function buildManualWeightGrid(plan) {
     return `
       <div class="table-wrap" style="max-height:none;margin-bottom:8px;">
         <table>
-          <thead><tr><th colspan="3">${dim}</th></tr><tr><th>分层</th><th>社区用户</th><th>非社区用户</th></tr></thead>
+          <thead><tr><th colspan="3">${WEIGHT_DIM_LABELS[dim] || dim}</th></tr><tr><th>分层</th><th>社区用户</th><th>非社区用户</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -533,7 +550,8 @@ function buildPlanFromManualInputs() {
     communityNoCodes: ["5"],
     communityPenetration: Number.isFinite(p) && p > 0 && p < 1 ? p : 0.5,
     groupTargets: { community: {}, non_community: {} },
-    adventureField: "q36",
+    adventureField: "level",
+    spendField: "spend_level",
   };
   const cells = [...document.querySelectorAll("[data-weight-cell='1']")];
   for (const cell of cells) {
@@ -584,19 +602,46 @@ function normKey(v) {
 
 function ageBucketFromQ33(code) {
   const n = Number(code);
-  if (!Number.isFinite(n)) return "";
+  if (!Number.isFinite(n)) return "未知";
   if (n >= 16 && n <= 22) return "19-25";
   if (n >= 11 && n <= 15) return "26-30";
-  if (n <= 6) return "35+";
-  return "";
+  if (n >= 6 && n <= 10) return "31-35";
+  if (n <= 5) return "35+";
+  return "未知";
 }
 
 function adventureBucketFromValue(v) {
   const n = Number(str(v).replace(/[^\d]/g, ""));
-  if (!Number.isFinite(n)) return "";
+  if (!Number.isFinite(n)) return "未知";
   if (n <= 30) return "0-30";
-  if (n <= 44) return "31-44";
-  if (n <= 60) return "45-60";
+  if (n <= 45) return "31-45";
+  if (n <= 60) return "46-60";
+  return "未知";
+}
+
+function spendBucketFromValue(v) {
+  const t = str(v);
+  if (!t) return "未知";
+  const n = Number(t);
+  if (Number.isFinite(n)) {
+    if (n === 1) return "大R";
+    if (n === 2) return "中R";
+    if (n === 3) return "小R";
+    if (n === 4 || n === 0) return "无付费";
+  }
+  if (/大\s*R|大r|高消费|高付费/.test(t)) return "大R";
+  if (/中\s*R|中r|中消费|中付费/.test(t)) return "中R";
+  if (/小\s*R|小r|低消费|低付费/.test(t)) return "小R";
+  if (/无付费|未付费|无充值|零付费|不付费/.test(t)) return "无付费";
+  return "未知";
+}
+
+function readFirstExistingField(row, candidates) {
+  for (const f of candidates) {
+    const key = str(f);
+    if (!key) continue;
+    if (key in row && str(row[key]) !== "") return row[key];
+  }
   return "";
 }
 
@@ -626,10 +671,21 @@ function resolvePenetration(plan) {
 
 function getDimValue(row, dim, plan) {
   const d = str(dim);
-  if (d === "gender") return getSingleLabel("q34", str(row.q34));
+  if (d === "gender") {
+    const v = getSingleLabel("q34", str(row.q34));
+    if (v === "男" || v === "女") return v;
+    return "未知";
+  }
   if (d === "age") return ageBucketFromQ33(str(row.q33));
   if (d === "community_active") return isCommunityUser(row, plan) ? "有" : "无";
-  if (d === "adventure") return adventureBucketFromValue(row[str(plan.adventureField || "q36")]);
+  if (d === "adventure") {
+    const raw = readFirstExistingField(row, [plan.adventureField, "level", "adventure_level", "ar_level", "q36"]);
+    return adventureBucketFromValue(raw);
+  }
+  if (d === "spend") {
+    const raw = readFirstExistingField(row, [plan.spendField, "spend_level", "consume_level", "pay_level", "charge_level", "r_level", "q37"]);
+    return spendBucketFromValue(raw);
+  }
   if (/^q\d+$/.test(d)) {
     const code = str(row[d]);
     const label = getSingleLabel(d, code);
@@ -1874,21 +1930,33 @@ function parseBiWeightTable(text) {
     const s = str(l);
     if (s.includes("男")) return "男";
     if (s.includes("女")) return "女";
+    if (s.includes("未知")) return "未知";
     return "";
   });
   const ageDist = mapDist(getRows("年龄"), (l) => {
     const s = str(l);
     if (s.includes("19-25")) return "19-25";
     if (s.includes("26-30")) return "26-30";
-    if (s.includes("31-35")) return "35+";
+    if (s.includes("31-35")) return "31-35";
     if (s.includes("35")) return "35+";
+    if (s.includes("未知")) return "未知";
     return "";
   });
   const advDist = mapDist(getRows("冒险等级2"), (l) => {
     const s = str(l);
     if (s.includes("0-30")) return "0-30";
-    if (s.includes("31-45") || s.includes("31-44")) return "31-44";
-    if (s.includes("46-60") || s.includes("45-60")) return "45-60";
+    if (s.includes("31-45") || s.includes("31-44")) return "31-45";
+    if (s.includes("46-60") || s.includes("45-60")) return "46-60";
+    if (s.includes("未知")) return "未知";
+    return "";
+  });
+  const spendDist = mapDist(getRows("消费等级"), (l) => {
+    const s = str(l);
+    if (s.includes("大R")) return "大R";
+    if (s.includes("中R")) return "中R";
+    if (s.includes("小R")) return "小R";
+    if (s.includes("无付费")) return "无付费";
+    if (s.includes("未知")) return "未知";
     return "";
   });
 
@@ -1903,16 +1971,19 @@ function parseBiWeightTable(text) {
         gender: genderDist.community,
         age: ageDist.community,
         adventure: advDist.community,
+        spend: spendDist.community,
         community_active: { 有: 1, 无: 0 },
       },
       non_community: {
         gender: genderDist.non_community,
         age: ageDist.non_community,
         adventure: advDist.non_community,
+        spend: spendDist.non_community,
         community_active: { 有: 0, 无: 1 },
       },
     },
-    adventureField: "q36",
+    adventureField: "level",
+    spendField: "spend_level",
   };
 }
 
