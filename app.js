@@ -1974,10 +1974,12 @@ function deleteWeightHistoryItem() {
 }
 
 function splitBiLine(line) {
-  const t = String(line || "").trim();
-  if (!t) return [];
-  if (t.includes("\t")) return t.split("\t").map((x) => x.trim());
-  return t.split(/\s{2,}/).map((x) => x.trim());
+  const raw = String(line || "");
+  if (!raw.trim()) return [];
+  // 这里不能先 trim：粘贴自 Excel 的续行会用首列空白表示“沿用上一维度”，
+  // 先 trim 会丢失这个空列，导致“维度枚举/数值列”错位。
+  if (raw.includes("\t")) return raw.split("\t").map((x) => x.trim());
+  return raw.trim().split(/\s{2,}/).map((x) => x.trim());
 }
 
 function toNum(v) {
