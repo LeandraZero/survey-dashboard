@@ -1997,6 +1997,12 @@ function applyBiWeightFromPanel() {
   };
   saveWeightConfig();
   buildManualWeightGrid(parsed);
+  const weightStats = document.getElementById("weightStats");
+  if (weightStats) {
+    const dimsText = nextDims.length ? nextDims.map((d) => WEIGHT_DIM_LABELS[d] || d).join("、") : "未识别维度";
+    const pen = resolvePenetration(parsed);
+    weightStats.innerHTML = `状态：已从粘贴文本填充。识别维度：${dimsText}；社区渗透率：${pen ? fmtPct1(pen.community) : "--"}`;
+  }
   renderRulesPanel();
   alert("大盘表已解析并填充到加权表格，可直接点“保存加权并重算”");
 }
@@ -2031,7 +2037,9 @@ function splitBiLine(line) {
   // 这里不能先 trim：粘贴自 Excel 的续行会用首列空白表示“沿用上一维度”，
   // 先 trim 会丢失这个空列，导致“维度枚举/数值列”错位。
   if (raw.includes("\t")) return raw.split("\t").map((x) => x.trim());
-  return raw.trim().split(/\s{2,}/).map((x) => x.trim());
+  const multi = raw.trim().split(/\s{2,}/).map((x) => x.trim());
+  if (multi.length >= 3) return multi;
+  return raw.trim().split(/\s+/).map((x) => x.trim());
 }
 
 function toNum(v) {
@@ -2041,6 +2049,9 @@ function toNum(v) {
 
 function parseBiWeightTable(text) {
   const lines = String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[；;]\s*加权识别.*$/gim, "")
+    .replace(/[；;]\s*$/gm, "")
     .split(/\r?\n/)
     .map((x) => x.trim())
     .filter(Boolean);
