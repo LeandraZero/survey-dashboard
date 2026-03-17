@@ -1625,6 +1625,88 @@ function exportCrossTableCsv() {
   downloadTextFile(`cross-analysis-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
 }
 
+function csvCell(v) {
+  const val = String(v ?? "").replace(/\r?\n/g, " ").trim();
+  return `"${val.replace(/"/g, '""')}"`;
+}
+
+function buildFullCrossSegments() {
+  const segments = [];
+  segments.push({ key: "all", name: "全部", fn: () => true });
+
+  const genderSegments = [
+    { key: "male", name: "性别-男", fn: (r) => str(r.q34) === "1" },
+    { key: "female", name: "性别-女", fn: (r) => str(r.q34) === "2" },
+    { key: "private", name: "性别-不方便透露", fn: (r) => str(r.q34) === "3" },
+  ];
+  segments.push(...genderSegments);
+
+  const ageSegments = [
+    { key: "19_25", name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
+    { key: "26_30", name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
+    { key: "31_35", name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
+    { key: "35_plus", name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
+    { key: "age_unknown", name: "年龄-未知", fn: (r) => ageBucketFromQ33(str(r.q33)) === "未知" },
+  ];
+  segments.push(...ageSegments);
+
+  const q2Segments = Object.entries(Q2_CATEGORIES).map(([code, label]) => {
+    const c = Number(code);
+    return {
+      key: `q2_${c}`,
+      name: `Q2-${label}`,
+      fn: (r) => hasQ2ByCode(r, c) || hasQ2AllDiscuss(r),
+    };
+  });
+  segments.push(...q2Segments);
+
+  return segments;
+}
+
+function exportFullCrossTableCsv() {
+  const questions = getAnalysisQuestions();
+  if (!questions.length) {
+    alert("暂无可导出的题目");
+    return;
+  }
+  if (!analysisRows.length) {
+    alert("暂无样本数据");
+    return;
+  }
+
+  const segments = buildFullCrossSegments();
+  const segRows = segments.map((s) => ({ ...s, rows: analysisRows.filter(s.fn) }));
+  const header = ["题目", "选项", ...segRows.map((s) => s.name)];
+  const lines = [header.map(csvCell).join(",")];
+
+  const nRow = ["分组样本量", "", ...segRows.map((s) => String(fmtCount(sumWeights(s.rows))))];
+  lines.push(nRow.map(csvCell).join(","));
+
+  for (const q of questions) {
+    const entries = Object.entries(q.labels || {}).sort((a, b) => Number(a[0]) - Number(b[0]));
+    if (!entries.length) continue;
+
+    const segDist = segRows.map((s) => {
+      const dist = getQuestionDistribution(s.rows, q);
+      return new Map(dist.items.map((x) => [String(x.code), x]));
+    });
+
+    entries.forEach(([code, label], idx) => {
+      const row = [
+        idx === 0 ? q.name : "",
+        label,
+        ...segDist.map((m) => {
+          const it = m.get(String(code));
+          return it ? fmtPct(it.ratio) : "--";
+        }),
+      ];
+      lines.push(row.map(csvCell).join(","));
+    });
+  }
+
+  downloadTextFile(`full-cross-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
+}
+
 function renderCross() {
   const analysisQuestions = getAnalysisQuestions();
   const attrQuestions = getAttrQuestions();
@@ -2647,6 +2729,8 @@ function bindActions() {
     });
   }
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
+  const btnExportFullCross = document.getElementById("btnExportFullCross");
+  if (btnExportFullCross) btnExportFullCross.addEventListener("click", exportFullCrossTableCsv);
   document.getElementById("btnSaveRules").addEventListener("click", saveRulesFromPanel);
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
   const btnSaveWeight = document.getElementById("btnSaveWeight");
