@@ -2069,6 +2069,23 @@ function parseBiWeightTable(text) {
   if (!lines.length) return null;
 
   const KNOWN_DIMS = new Set(["整体", "性别", "年龄", "冒险等级1", "冒险等级2", "消费等级", "社区信息"]);
+  const normalizeDimName = (raw) => {
+    const s = str(raw).replace(/\s+/g, "");
+    if (!s) return "";
+    if (s.includes("整体")) return "整体";
+    if (s.includes("性别")) return "性别";
+    if (s.includes("年龄")) return "年龄";
+    if (s.includes("冒险") && (s.includes("等级2") || s.includes("等阶2"))) return "冒险等级2";
+    if (s.includes("冒险") && (s.includes("等级1") || s.includes("等阶1"))) return "冒险等级1";
+    if (s.includes("消费")) return "消费等级";
+    if (s.includes("社区信息")) return "社区信息";
+    return "";
+  };
+  const normalizeRangeText = (raw) =>
+    str(raw)
+      .replace(/[–—~～至]/g, "-")
+      .replace(/\s+/g, "")
+      .replace(/岁/g, "");
   const data = [];
   let currentDim = "";
 
@@ -2090,12 +2107,13 @@ function parseBiWeightTable(text) {
     let dim = "";
     let label = "";
 
-    if (tokens.length >= 2 && KNOWN_DIMS.has(tokens[0])) {
-      dim = tokens[0];
+    const maybeDim = normalizeDimName(tokens[0]);
+    if (tokens.length >= 2 && (KNOWN_DIMS.has(tokens[0]) || maybeDim)) {
+      dim = maybeDim || tokens[0];
       label = tokens.slice(1).join("");
       currentDim = dim;
-    } else if (KNOWN_DIMS.has(tokens[0])) {
-      dim = tokens[0];
+    } else if (KNOWN_DIMS.has(tokens[0]) || maybeDim) {
+      dim = maybeDim || tokens[0];
       label = "";
       currentDim = dim;
     } else {
@@ -2105,7 +2123,7 @@ function parseBiWeightTable(text) {
 
     if (!dim || /row labels/i.test(dim)) continue;
     if (!label && dim !== "整体") continue;
-    data.push({ dim, label, community: c, non: n });
+    data.push({ dim, label: normalizeRangeText(label), community: c, non: n });
   }
   if (!data.length) return null;
 
