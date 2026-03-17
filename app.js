@@ -1968,6 +1968,18 @@ function saveWeightFromPanel() {
   alert("加权配置已保存并重算");
 }
 
+function toggleWeightEnabledFromPanel() {
+  const weightEnable = document.getElementById("weightEnable");
+  if (!weightEnable) return;
+  weightConfig = {
+    ...weightConfig,
+    enabled: !!weightEnable.checked,
+  };
+  saveWeightConfig();
+  recomputeAnalysisRows();
+  renderAll();
+}
+
 function applyBiWeightFromPanel() {
   const input = document.getElementById("weightBiInput");
   if (!input) return;
@@ -2467,6 +2479,8 @@ function bindActions() {
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
   const btnSaveWeight = document.getElementById("btnSaveWeight");
   if (btnSaveWeight) btnSaveWeight.addEventListener("click", saveWeightFromPanel);
+  const weightEnable = document.getElementById("weightEnable");
+  if (weightEnable) weightEnable.addEventListener("change", toggleWeightEnabledFromPanel);
   const btnApplyBiWeight = document.getElementById("btnApplyBiWeight");
   if (btnApplyBiWeight) btnApplyBiWeight.addEventListener("click", applyBiWeightFromPanel);
   const btnLoadWeightHistory = document.getElementById("btnLoadWeightHistory");
