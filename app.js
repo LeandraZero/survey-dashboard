@@ -1702,19 +1702,9 @@ function exportFullCrossTableCsv() {
       };
     });
 
-    const qTotalRow = [
-      q.name,
-      "总计(作答n)",
-    ];
-    segDist.forEach((d) => {
-      qTotalRow.push(fmtCount(d.denominator));
-      qTotalRow.push("");
-    });
-    lines.push(qTotalRow.map(csvCell).join(","));
-
     entries.forEach(([code, label], idx) => {
       const row = [
-        "",
+        idx === 0 ? q.name : "",
         label,
       ];
       segDist.forEach((d) => {
@@ -1724,6 +1714,16 @@ function exportFullCrossTableCsv() {
       });
       lines.push(row.map(csvCell).join(","));
     });
+
+    const qTotalRow = [
+      "",
+      "总计(作答n)",
+    ];
+    segDist.forEach((d) => {
+      qTotalRow.push(fmtCount(d.denominator));
+      qTotalRow.push("");
+    });
+    lines.push(qTotalRow.map(csvCell).join(","));
   }
 
   downloadTextFile(`full-cross-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
