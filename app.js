@@ -1635,9 +1635,8 @@ function buildFullCrossSegments() {
   segments.push({ key: "all", name: "全部", fn: () => true });
 
   const genderSegments = [
-    { key: "male", name: "性别-男", fn: (r) => str(r.q34) === "1" },
-    { key: "female", name: "性别-女", fn: (r) => str(r.q34) === "2" },
-    { key: "private", name: "性别-不方便透露", fn: (r) => str(r.q34) === "3" },
+    { key: "male_bi", name: "性别(BI)-男", fn: (r) => getBiGenderValue(r) === "男" },
+    { key: "female_bi", name: "性别(BI)-女", fn: (r) => getBiGenderValue(r) === "女" },
   ];
   segments.push(...genderSegments);
 
