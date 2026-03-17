@@ -1675,7 +1675,7 @@ function exportFullCrossTableCsv() {
 
   const segments = buildFullCrossSegments();
   const segRows = segments.map((s) => ({ ...s, rows: analysisRows.filter(s.fn) }));
-  const header = ["题目", "选项", ...segRows.map((s) => s.name)];
+  const header = ["题目", "选项", ...segRows.map((s) => `${s.name}(N=${fmtCount(sumWeights(s.rows))})`)];
   const lines = [header.map(csvCell).join(",")];
 
   const nRow = ["分组样本量", "", ...segRows.map((s) => String(fmtCount(sumWeights(s.rows))))];
@@ -1687,16 +1687,26 @@ function exportFullCrossTableCsv() {
 
     const segDist = segRows.map((s) => {
       const dist = getQuestionDistribution(s.rows, q);
-      return new Map(dist.items.map((x) => [String(x.code), x]));
+      return {
+        denominator: dist.denominator,
+        byCode: new Map(dist.items.map((x) => [String(x.code), x])),
+      };
     });
+
+    const qTotalRow = [
+      q.name,
+      "总计(作答n)",
+      ...segDist.map((d) => fmtCount(d.denominator)),
+    ];
+    lines.push(qTotalRow.map(csvCell).join(","));
 
     entries.forEach(([code, label], idx) => {
       const row = [
-        idx === 0 ? q.name : "",
+        "",
         label,
-        ...segDist.map((m) => {
-          const it = m.get(String(code));
-          return it ? fmtPct(it.ratio) : "--";
+        ...segDist.map((d) => {
+          const it = d.byCode.get(String(code));
+          return it ? `${fmtPct(it.ratio)} (${fmtCount(it.count)})` : "--";
         }),
       ];
       lines.push(row.map(csvCell).join(","));
