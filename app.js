@@ -2028,6 +2028,24 @@ function applyBiWeightFromPanel() {
   alert("大盘表已解析并填充到加权表格，可直接点“保存加权并重算”");
 }
 
+function apply64PresetWeight() {
+  const plan = JSON.parse(JSON.stringify(DEFAULT_WEIGHT_PLAN));
+  weightConfig = {
+    ...weightConfig,
+    dims: ["gender", "age", "adventure", "spend"],
+    targetsText: JSON.stringify(plan, null, 2),
+  };
+  saveWeightConfig();
+  buildManualWeightGrid(plan);
+  const weightStats = document.getElementById("weightStats");
+  if (weightStats) {
+    const pen = resolvePenetration(plan);
+    weightStats.innerHTML = `状态：已一键填入6.4大盘；社区渗透率：${pen ? fmtPct1(pen.community) : "--"}`;
+  }
+  renderRulesPanel();
+  alert("已一键填入6.4大盘参数，可直接勾选启用加权");
+}
+
 function loadAndApplyWeightHistory() {
   const sel = document.getElementById("weightHistorySelect");
   if (!sel || !sel.value) return;
@@ -2533,6 +2551,8 @@ function bindActions() {
   if (weightEnable) weightEnable.addEventListener("change", toggleWeightEnabledFromPanel);
   const btnApplyBiWeight = document.getElementById("btnApplyBiWeight");
   if (btnApplyBiWeight) btnApplyBiWeight.addEventListener("click", applyBiWeightFromPanel);
+  const btnApply64Preset = document.getElementById("btnApply64Preset");
+  if (btnApply64Preset) btnApply64Preset.addEventListener("click", apply64PresetWeight);
   const btnLoadWeightHistory = document.getElementById("btnLoadWeightHistory");
   if (btnLoadWeightHistory) btnLoadWeightHistory.addEventListener("click", loadAndApplyWeightHistory);
   const btnDeleteWeightHistory = document.getElementById("btnDeleteWeightHistory");
