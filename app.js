@@ -29,6 +29,7 @@ const DEFAULT_WEIGHT_PLAN = {
   communityField: "近42天内社区活跃",
   communityYesCodes: ["1"],
   communityNoCodes: ["0"],
+  genderField: "性别-BI",
   communityPenetration: 0.3687,
   groupTargets: {
     community: {
@@ -46,7 +47,8 @@ const DEFAULT_WEIGHT_PLAN = {
       community_active: { 有: 0, 无: 1 },
     },
   },
-  adventureField: "游戏等级",
+  adventureTierField: "冒险等阶2分级-BI",
+  adventureField: "游戏等级-BI",
   spendField: "累计付费",
 };
 
@@ -598,9 +600,11 @@ function buildPlanFromManualInputs() {
     communityField: "近42天内社区活跃",
     communityYesCodes: ["1"],
     communityNoCodes: ["0"],
+    genderField: "性别-BI",
     communityPenetration: Number.isFinite(p) && p > 0 && p < 1 ? p : 0.5,
     groupTargets: { community: {}, non_community: {} },
-    adventureField: "游戏等级",
+    adventureTierField: "冒险等阶2分级-BI",
+    adventureField: "游戏等级-BI",
     spendField: "累计付费",
   };
   const cells = [...document.querySelectorAll("[data-weight-cell='1']")];
@@ -669,6 +673,16 @@ function adventureBucketFromValue(v) {
   return "未知";
 }
 
+function adventureTierBucketFromText(v) {
+  const t = str(v);
+  if (!t) return "";
+  if (t.includes("0-30") || t.includes("0~30")) return "0-30";
+  if (t.includes("31-45") || t.includes("31~45") || t.includes("31-44") || t.includes("31~44")) return "31-45";
+  if (t.includes("46-60") || t.includes("46~60") || t.includes("45-60") || t.includes("45~60")) return "46-60";
+  if (/未知|null|na|n\/a/i.test(t)) return "未知";
+  return "";
+}
+
 function spendBucketFromValue(v) {
   const t = str(v);
   if (!t) return "未知";
@@ -726,6 +740,9 @@ function resolvePenetration(plan) {
 function getDimValue(row, dim, plan) {
   const d = str(dim);
   if (d === "gender") {
+    const biRaw = readFirstExistingField(row, [plan.genderField, "性别-BI", "性别", "gender_bi", "gender"]);
+    const bi = normalizeBiGender(biRaw);
+    if (bi) return bi;
     const v = getSingleLabel("q34", str(row.q34));
     if (v === "男" || v === "女") return v;
     return "未知";
@@ -733,7 +750,10 @@ function getDimValue(row, dim, plan) {
   if (d === "age") return ageBucketFromQ33(str(row.q33));
   if (d === "community_active") return isCommunityUser(row, plan) ? "有" : "无";
   if (d === "adventure") {
-    const raw = readFirstExistingField(row, [plan.adventureField, "游戏等级", "level", "adventure_level", "ar_level", "q36"]);
+    const tierRaw = readFirstExistingField(row, [plan.adventureTierField, "冒险等阶2分级-BI", "冒险等级2-BI", "冒险等级2"]);
+    const tier = adventureTierBucketFromText(tierRaw);
+    if (tier) return tier;
+    const raw = readFirstExistingField(row, [plan.adventureField, "游戏等级-BI", "游戏等级", "level", "adventure_level", "ar_level", "q36"]);
     return adventureBucketFromValue(raw);
   }
   if (d === "spend") {
@@ -2103,6 +2123,7 @@ function parseBiWeightTable(text) {
     communityField: "近42天内社区活跃",
     communityYesCodes: ["1"],
     communityNoCodes: ["0"],
+    genderField: "性别-BI",
     communityPenetration,
     groupTargets: {
       community: {
@@ -2120,7 +2141,8 @@ function parseBiWeightTable(text) {
         community_active: { 有: 0, 无: 1 },
       },
     },
-    adventureField: "游戏等级",
+    adventureTierField: "冒险等阶2分级-BI",
+    adventureField: "游戏等级-BI",
     spendField: "累计付费",
   };
 }
