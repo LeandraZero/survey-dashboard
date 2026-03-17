@@ -2065,8 +2065,7 @@ function parseBiWeightTable(text) {
     .replace(/[；;]\s*加权识别.*$/gim, "")
     .replace(/[；;]\s*$/gm, "")
     .split(/\r?\n/)
-    .map((x) => x.trim())
-    .filter(Boolean);
+    .filter((x) => String(x || "").trim() !== "");
   if (!lines.length) return null;
 
   const rows = lines.map(splitBiLine).filter((x) => x.length >= 3);
