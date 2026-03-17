@@ -141,6 +141,30 @@ body {
   white-space: pre-line;
 }
 
+.weight-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mode-pill {
+  border: 1px solid #1e4a9d;
+  background: #0d224b;
+  color: #8eb0ea;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mode-pill.active {
+  background: #edf2ff;
+  color: #0d224b;
+  border-color: #dbe5ff;
+  font-weight: 700;
+}
+
 .content {
   padding: 22px 24px 28px;
   min-height: 100vh;

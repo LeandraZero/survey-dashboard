@@ -318,6 +318,16 @@ function isWeightEnabled() {
   return !!weightConfig.enabled;
 }
 
+function setWeightEnabled(enabled) {
+  weightConfig = {
+    ...weightConfig,
+    enabled: !!enabled,
+  };
+  saveWeightConfig();
+  recomputeAnalysisRows();
+  renderAll();
+}
+
 function getRowWeight(row) {
   const w = Number(row?.__w ?? 1);
   if (!Number.isFinite(w) || w <= 0) return 1;
@@ -517,6 +527,15 @@ function fmtPct1(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "--";
   return `${(v * 100).toFixed(1)}%`;
+}
+
+function renderWeightModeSwitch() {
+  const off = document.getElementById("btnWeightOff");
+  const on = document.getElementById("btnWeightOn");
+  if (!off || !on) return;
+  const enabled = isWeightEnabled();
+  off.classList.toggle("active", !enabled);
+  on.classList.toggle("active", enabled);
 }
 
 function calcSampleDistByGroup(plan, dim, values) {
@@ -1875,6 +1894,102 @@ function setSelectOptionsWithRaw(selectId, values) {
   });
 }
 
+function normalizeTargetMap(map, cats) {
+  const out = {};
+  let sum = 0;
+  cats.forEach((c) => {
+    const v = Number(map?.[c] ?? 0);
+    if (Number.isFinite(v) && v > 0) {
+      out[c] = v;
+      sum += v;
+    } else {
+      out[c] = 0;
+    }
+  });
+  if (sum <= 0) return Object.fromEntries(cats.map((c) => [c, 0]));
+  return Object.fromEntries(cats.map((c) => [c, out[c] / sum]));
+}
+
+function calcDistForRows(rows, dim, plan, useWeight) {
+  const cats = WEIGHT_DIM_VALUES[dim] || [];
+  const counts = Object.fromEntries(cats.map((c) => [c, 0]));
+  let total = 0;
+  for (const row of rows) {
+    const key = getDimValue(row, dim, plan);
+    if (!(key in counts)) continue;
+    const w = useWeight ? getRowWeight(row) : 1;
+    counts[key] += w;
+    total += w;
+  }
+  const ratios = Object.fromEntries(cats.map((c) => [c, total > 0 ? counts[c] / total : 0]));
+  return { counts, ratios, total };
+}
+
+function renderWeightMappingAndDiagnostics(plan) {
+  const mapNode = document.getElementById("weightMapping");
+  const diagNode = document.getElementById("weightDiagnostics");
+  if (!mapNode || !diagNode) return;
+
+  const communityField = str(plan.communityField || "近42天内社区活跃");
+  const genderField = str(plan.genderField || getBiGenderField() || "q34");
+  const ageField = "q33";
+  const adventureField = str(plan.adventureTierField || plan.adventureField || "冒险等阶2分级-BI");
+
+  mapNode.innerHTML = [
+    "锁定字段：",
+    `社区分组字段：${communityField}`,
+    `性别字段：${genderField}`,
+    `年龄字段：${ageField}`,
+    `冒险字段：${adventureField}`,
+  ].join("<br/>");
+
+  const commRows = analysisRows.filter((r) => isCommunityUser(r, plan));
+  const nonRows = analysisRows.filter((r) => !isCommunityUser(r, plan));
+  const weightedComm = sumWeights(commRows);
+  const weightedNon = sumWeights(nonRows);
+  const weightedTotal = weightedComm + weightedNon;
+  const p = resolvePenetration(plan);
+  const dims = (weightConfig.dims || []).filter((d) => d in WEIGHT_DIM_VALUES && d !== "community_active");
+
+  const tables = dims
+    .map((dim) => {
+      const cats = WEIGHT_DIM_VALUES[dim];
+      const tComm = normalizeTargetMap(plan?.groupTargets?.community?.[dim], cats);
+      const tNon = normalizeTargetMap(plan?.groupTargets?.non_community?.[dim], cats);
+      const preComm = calcDistForRows(commRows, dim, plan, false).ratios;
+      const preNon = calcDistForRows(nonRows, dim, plan, false).ratios;
+      const postComm = calcDistForRows(commRows, dim, plan, true).ratios;
+      const postNon = calcDistForRows(nonRows, dim, plan, true).ratios;
+      const rows = cats
+        .map(
+          (c) => `<tr>
+            <td>${c}</td>
+            <td>${fmtPct1(preComm[c])}</td><td>${fmtPct1(postComm[c])}</td><td>${fmtPct1(tComm[c])}</td>
+            <td>${fmtPct1(preNon[c])}</td><td>${fmtPct1(postNon[c])}</td><td>${fmtPct1(tNon[c])}</td>
+          </tr>`,
+        )
+        .join("");
+      return `<div class="table-wrap" style="max-height:none;margin-top:8px;">
+        <table>
+          <thead>
+            <tr><th colspan="7">${WEIGHT_DIM_LABELS[dim] || dim}</th></tr>
+            <tr><th>类别</th><th>社前</th><th>社后</th><th>社目标</th><th>非前</th><th>非后</th><th>非目标</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    })
+    .join("");
+
+  diagNode.innerHTML = [
+    `加权诊断：`,
+    `样本量(未加权)：社区 ${commRows.length}，非社区 ${nonRows.length}，总体 ${analysisRows.length}`,
+    `样本量(当前权重)：社区 ${weightedComm.toFixed(1)}，非社区 ${weightedNon.toFixed(1)}，总体 ${weightedTotal.toFixed(1)}`,
+    `目标渗透率：社区 ${p ? fmtPct1(p.community) : "--"}，非社区 ${p ? fmtPct1(p.non_community) : "--"}`,
+    tables,
+  ].join("<br/>");
+}
+
 function renderRulesPanel() {
   const headers = getHeaders();
   const qHeaders = headers.filter((h) => /^q\d+/.test(h));
@@ -1928,9 +2043,12 @@ function renderRulesPanel() {
     }
     weightStats.innerHTML = `状态：${weightState.message}`;
     try {
-      buildManualWeightGrid(parseWeightPlan(weightConfig.targetsText || ""));
+      const parsedPlan = parseWeightPlan(weightConfig.targetsText || "");
+      buildManualWeightGrid(parsedPlan);
+      renderWeightMappingAndDiagnostics(parsedPlan);
     } catch {
       buildManualWeightGrid({});
+      renderWeightMappingAndDiagnostics({});
     }
     if (historySelect) {
       historySelect.innerHTML = "";
@@ -1980,13 +2098,7 @@ function saveWeightFromPanel() {
 function toggleWeightEnabledFromPanel() {
   const weightEnable = document.getElementById("weightEnable");
   if (!weightEnable) return;
-  weightConfig = {
-    ...weightConfig,
-    enabled: !!weightEnable.checked,
-  };
-  saveWeightConfig();
-  recomputeAnalysisRows();
-  renderAll();
+  setWeightEnabled(!!weightEnable.checked);
 }
 
 function applyBiWeightFromPanel() {
@@ -2549,6 +2661,10 @@ function bindActions() {
   if (btnSaveWeight) btnSaveWeight.addEventListener("click", saveWeightFromPanel);
   const weightEnable = document.getElementById("weightEnable");
   if (weightEnable) weightEnable.addEventListener("change", toggleWeightEnabledFromPanel);
+  const btnWeightOff = document.getElementById("btnWeightOff");
+  const btnWeightOn = document.getElementById("btnWeightOn");
+  if (btnWeightOff) btnWeightOff.addEventListener("click", () => setWeightEnabled(false));
+  if (btnWeightOn) btnWeightOn.addEventListener("click", () => setWeightEnabled(true));
   const btnApplyBiWeight = document.getElementById("btnApplyBiWeight");
   if (btnApplyBiWeight) btnApplyBiWeight.addEventListener("click", applyBiWeightFromPanel);
   const btnApply64Preset = document.getElementById("btnApply64Preset");
@@ -2561,6 +2677,7 @@ function bindActions() {
 }
 
 function renderAll() {
+  renderWeightModeSwitch();
   renderUploadMeta();
   renderOverview();
   renderRulesPanel();

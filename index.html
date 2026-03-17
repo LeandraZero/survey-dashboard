@@ -35,6 +35,10 @@
         <button class="tab" data-tab="wordcloud">开放题词云</button>
         <button class="tab" data-tab="upload">数据录入</button>
       </nav>
+      <div class="weight-mode-switch" id="weightModeSwitch">
+        <button id="btnWeightOff" type="button" class="mode-pill active">未加权</button>
+        <button id="btnWeightOn" type="button" class="mode-pill">两层加权</button>
+      </div>
       <div class="sidebar-foot" id="sidebarMeta"></div>
     </aside>
 
@@ -205,6 +209,8 @@
                 </div>
               </div>
               <div class="upload-log" id="weightStats"></div>
+              <div class="upload-log" id="weightMapping"></div>
+              <div class="upload-log" id="weightDiagnostics"></div>
             </div>
           </article>
 
@@ -368,6 +374,6 @@
     </main>
   </div>
 
-  <script src="./app.js?v=20260317m"></script>
+  <script src="./app.js?v=20260317n"></script>
 </body>
 </html>
