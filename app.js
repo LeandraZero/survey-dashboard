@@ -26,9 +26,9 @@ const DEFAULT_RULES = {
 
 const DEFAULT_WEIGHT_PLAN = {
   mode: "two_stage",
-  communityField: "q27",
-  communityYesCodes: ["1", "2", "3", "4"],
-  communityNoCodes: ["5"],
+  communityField: "近42天内社区活跃",
+  communityYesCodes: ["1"],
+  communityNoCodes: ["0"],
   communityPenetration: 0.3687,
   groupTargets: {
     community: {
@@ -46,8 +46,8 @@ const DEFAULT_WEIGHT_PLAN = {
       community_active: { 有: 0, 无: 1 },
     },
   },
-  adventureField: "level",
-  spendField: "spend_level",
+  adventureField: "游戏等级",
+  spendField: "累计付费",
 };
 
 const CHANNELS = {
@@ -366,7 +366,25 @@ function hasQ2AllDiscuss(row) {
 }
 
 function isDataRow(row) {
-  return /^\d+$/.test(str(row.id));
+  const ts = parseDate(row?.create_time);
+  if (ts > 0) return true;
+  const idLike = str(row?.id) || str(row?.account_uid) || str(row?.uid) || str(row?.unique_id);
+  return /^\d+$/.test(idLike);
+}
+
+function getRowIdentity(row, fallback = "") {
+  const id = str(row?.id);
+  if (id) return id;
+  const accountUid = str(row?.account_uid);
+  if (accountUid) return accountUid;
+  const uid = str(row?.uid);
+  if (uid) return uid;
+  const uniqueId = str(row?.unique_id);
+  if (uniqueId) return uniqueId;
+  const ct = str(row?.create_time);
+  const ip = str(row?.ip);
+  if (ct || ip) return `${ct}__${ip}`;
+  return fallback;
 }
 
 function getHeaders() {
@@ -545,13 +563,13 @@ function buildPlanFromManualInputs() {
   const p = Number(penNode?.value || 0);
   const plan = {
     mode: "two_stage",
-    communityField: "q27",
-    communityYesCodes: ["1", "2", "3", "4"],
-    communityNoCodes: ["5"],
+    communityField: "近42天内社区活跃",
+    communityYesCodes: ["1"],
+    communityNoCodes: ["0"],
     communityPenetration: Number.isFinite(p) && p > 0 && p < 1 ? p : 0.5,
     groupTargets: { community: {}, non_community: {} },
-    adventureField: "level",
-    spendField: "spend_level",
+    adventureField: "游戏等级",
+    spendField: "累计付费",
   };
   const cells = [...document.querySelectorAll("[data-weight-cell='1']")];
   for (const cell of cells) {
@@ -646,9 +664,13 @@ function readFirstExistingField(row, candidates) {
 }
 
 function isCommunityUser(row, plan) {
-  const field = str(plan.communityField || "q27");
-  const yes = new Set((plan.communityYesCodes || ["1", "2", "3", "4"]).map((x) => String(x)));
-  const no = new Set((plan.communityNoCodes || ["5"]).map((x) => String(x)));
+  const preferredField = str(plan.communityField || "近42天内社区活跃");
+  const fallbackField = "q27";
+  const field = preferredField && preferredField in row ? preferredField : fallbackField;
+  const yesDefault = field === "q27" ? ["1", "2", "3", "4"] : ["1"];
+  const noDefault = field === "q27" ? ["5"] : ["0"];
+  const yes = new Set((plan.communityYesCodes || yesDefault).map((x) => String(x)));
+  const no = new Set((plan.communityNoCodes || noDefault).map((x) => String(x)));
   const code = str(row[field]);
   if (yes.has(code)) return true;
   if (no.has(code)) return false;
@@ -679,11 +701,11 @@ function getDimValue(row, dim, plan) {
   if (d === "age") return ageBucketFromQ33(str(row.q33));
   if (d === "community_active") return isCommunityUser(row, plan) ? "有" : "无";
   if (d === "adventure") {
-    const raw = readFirstExistingField(row, [plan.adventureField, "level", "adventure_level", "ar_level", "q36"]);
+    const raw = readFirstExistingField(row, [plan.adventureField, "游戏等级", "level", "adventure_level", "ar_level", "q36"]);
     return adventureBucketFromValue(raw);
   }
   if (d === "spend") {
-    const raw = readFirstExistingField(row, [plan.spendField, "spend_level", "consume_level", "pay_level", "charge_level", "r_level", "q37"]);
+    const raw = readFirstExistingField(row, [plan.spendField, "累计付费", "spend_level", "consume_level", "pay_level", "charge_level", "r_level", "q37"]);
     return spendBucketFromValue(raw);
   }
   if (/^q\d+$/.test(d)) {
@@ -1059,9 +1081,11 @@ function recomputeAnalysisRows() {
 
 function dedupRows(rows) {
   const map = new Map();
+  let idx = 0;
   for (const row of rows) {
     if (!isDataRow(row)) continue;
-    const id = str(row.id);
+    const id = getRowIdentity(row, `__row_${idx}`);
+    idx += 1;
     const prev = map.get(id);
     if (!prev) {
       map.set(id, row);
@@ -1962,9 +1986,9 @@ function parseBiWeightTable(text) {
 
   return {
     mode: "two_stage",
-    communityField: "q27",
-    communityYesCodes: ["1", "2", "3", "4"],
-    communityNoCodes: ["5"],
+    communityField: "近42天内社区活跃",
+    communityYesCodes: ["1"],
+    communityNoCodes: ["0"],
     communityPenetration,
     groupTargets: {
       community: {
@@ -1982,8 +2006,8 @@ function parseBiWeightTable(text) {
         community_active: { 有: 0, 无: 1 },
       },
     },
-    adventureField: "level",
-    spendField: "spend_level",
+    adventureField: "游戏等级",
+    spendField: "累计付费",
   };
 }
 
