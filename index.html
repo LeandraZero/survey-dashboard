@@ -172,6 +172,13 @@
               </label>
               <div class="chart-card" style="padding:10px;">
                 <h4 style="margin:0 0 8px 0;font-size:14px;">手动输入加权目标</h4>
+                <label class="rules-textarea-label">
+                  粘贴大盘表（可选，自动填充）
+                  <textarea id="weightBiInput" rows="6" placeholder="支持粘贴包含 维度 / 维度枚举 / 社区活跃 / 非社区活跃 的表格文本"></textarea>
+                </label>
+                <div class="upload-actions">
+                  <button id="btnApplyBiWeight" class="ghost">解析并填充加权表</button>
+                </div>
                 <div class="rules-grid">
                   <label>
                     社区渗透率（米游社）
@@ -360,6 +367,6 @@
     </main>
   </div>
 
-  <script src="./app.js?v=20260317b"></script>
+  <script src="./app.js?v=20260317c"></script>
 </body>
 </html>

@@ -1916,6 +1916,39 @@ function saveWeightFromPanel() {
   alert("加权配置已保存并重算");
 }
 
+function applyBiWeightFromPanel() {
+  const input = document.getElementById("weightBiInput");
+  if (!input) return;
+  const text = str(input.value);
+  if (!text) {
+    alert("请先粘贴大盘表文本");
+    return;
+  }
+  let parsed = null;
+  try {
+    parsed = parseBiWeightTable(text);
+  } catch (err) {
+    alert(`解析失败：${err.message}`);
+    return;
+  }
+  if (!parsed) {
+    alert("未识别到可用的大盘表数据，请检查是否包含“维度 / 社区活跃 / 非社区活跃”列");
+    return;
+  }
+
+  const parsedDims = Object.keys(parsed.groupTargets?.community || {}).filter((d) => d in WEIGHT_DIM_VALUES);
+  const nextDims = parsedDims.filter((d) => d !== "community_active");
+  weightConfig = {
+    ...weightConfig,
+    dims: nextDims.length ? nextDims : weightConfig.dims,
+    targetsText: JSON.stringify(parsed, null, 2),
+  };
+  saveWeightConfig();
+  buildManualWeightGrid(parsed);
+  renderRulesPanel();
+  alert("大盘表已解析并填充到加权表格，可直接点“保存加权并重算”");
+}
+
 function loadAndApplyWeightHistory() {
   const sel = document.getElementById("weightHistorySelect");
   if (!sel || !sel.value) return;
@@ -2367,6 +2400,8 @@ function bindActions() {
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
   const btnSaveWeight = document.getElementById("btnSaveWeight");
   if (btnSaveWeight) btnSaveWeight.addEventListener("click", saveWeightFromPanel);
+  const btnApplyBiWeight = document.getElementById("btnApplyBiWeight");
+  if (btnApplyBiWeight) btnApplyBiWeight.addEventListener("click", applyBiWeightFromPanel);
   const btnLoadWeightHistory = document.getElementById("btnLoadWeightHistory");
   if (btnLoadWeightHistory) btnLoadWeightHistory.addEventListener("click", loadAndApplyWeightHistory);
   const btnDeleteWeightHistory = document.getElementById("btnDeleteWeightHistory");
