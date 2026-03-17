@@ -1675,10 +1675,19 @@ function exportFullCrossTableCsv() {
 
   const segments = buildFullCrossSegments();
   const segRows = segments.map((s) => ({ ...s, rows: analysisRows.filter(s.fn) }));
-  const header = ["题目", "选项", ...segRows.map((s) => `${s.name}(N=${fmtCount(sumWeights(s.rows))})`)];
+  const header = ["题目", "选项"];
+  segRows.forEach((s) => {
+    const n = fmtCount(sumWeights(s.rows));
+    header.push(`${s.name}-计数(N=${n})`);
+    header.push(`${s.name}-%(N=${n})`);
+  });
   const lines = [header.map(csvCell).join(",")];
 
-  const nRow = ["分组样本量", "", ...segRows.map((s) => String(fmtCount(sumWeights(s.rows))))];
+  const nRow = ["分组样本量", ""];
+  segRows.forEach((s) => {
+    nRow.push(String(fmtCount(sumWeights(s.rows))));
+    nRow.push("");
+  });
   lines.push(nRow.map(csvCell).join(","));
 
   for (const q of questions) {
@@ -1696,19 +1705,23 @@ function exportFullCrossTableCsv() {
     const qTotalRow = [
       q.name,
       "总计(作答n)",
-      ...segDist.map((d) => fmtCount(d.denominator)),
     ];
+    segDist.forEach((d) => {
+      qTotalRow.push(fmtCount(d.denominator));
+      qTotalRow.push("");
+    });
     lines.push(qTotalRow.map(csvCell).join(","));
 
     entries.forEach(([code, label], idx) => {
       const row = [
         "",
         label,
-        ...segDist.map((d) => {
-          const it = d.byCode.get(String(code));
-          return it ? `${fmtPct(it.ratio)} (${fmtCount(it.count)})` : "--";
-        }),
       ];
+      segDist.forEach((d) => {
+        const it = d.byCode.get(String(code));
+        row.push(it ? fmtCount(it.count) : "0");
+        row.push(it ? fmtPct(it.ratio) : "--");
+      });
       lines.push(row.map(csvCell).join(","));
     });
   }
