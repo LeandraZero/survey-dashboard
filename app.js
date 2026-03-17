@@ -23,6 +23,8 @@ const DEFAULT_RULES = {
   enableRequired: false,
   requiredFields: [],
 };
+const FIXED_WEIGHT_DIMS = ["gender", "age", "adventure"];
+const FIXED_COMMUNITY_PENETRATION = 0.3687;
 
 const DEFAULT_WEIGHT_PLAN = {
   mode: "two_stage",
@@ -30,7 +32,7 @@ const DEFAULT_WEIGHT_PLAN = {
   communityYesCodes: ["1"],
   communityNoCodes: ["0"],
   genderField: "性别-BI",
-  communityPenetration: 0.3687,
+  communityPenetration: FIXED_COMMUNITY_PENETRATION,
   groupTargets: {
     community: {
       gender: { 男: 0.5861, 女: 0.4097, 未知: 0.0041 },
@@ -169,7 +171,7 @@ let openConfig = { q32: "Q32 平台期待（开放题）" };
 let frameworkConfig = { raw: "", items: [], updatedAt: "" };
 let weightConfig = {
   enabled: false,
-  dims: ["gender", "age", "adventure", "spend"],
+  dims: [...FIXED_WEIGHT_DIMS],
   targetsText: JSON.stringify(DEFAULT_WEIGHT_PLAN, null, 2),
   maxIter: 24,
   capMin: 0.2,
@@ -561,8 +563,6 @@ function getWeightDimCandidates() {
     { id: "gender", name: "性别（男 / 女 / 未知）" },
     { id: "age", name: "年龄（19-25 / 26-30 / 31-35 / 35+ / 未知）" },
     { id: "adventure", name: "冒险等级2（0-30 / 31-45 / 46-60 / 未知）" },
-    { id: "spend", name: "消费等级（大R / 中R / 小R / 无付费 / 未知）" },
-    { id: "community_active", name: "社区活跃（有/无）" },
   ];
 }
 
@@ -608,21 +608,18 @@ function buildManualWeightGrid(plan) {
 
   const penNode = document.getElementById("weightManualPenetration");
   if (penNode) {
-    const p = Number(plan?.communityPenetration);
-    penNode.value = Number.isFinite(p) ? String(p) : "";
+    penNode.value = String(FIXED_COMMUNITY_PENETRATION);
   }
 }
 
 function buildPlanFromManualInputs() {
-  const penNode = document.getElementById("weightManualPenetration");
-  const p = Number(penNode?.value || 0);
   const plan = {
     mode: "two_stage",
     communityField: "近42天内社区活跃",
     communityYesCodes: ["1"],
     communityNoCodes: ["0"],
     genderField: "性别-BI",
-    communityPenetration: Number.isFinite(p) && p > 0 && p < 1 ? p : 0.5,
+    communityPenetration: FIXED_COMMUNITY_PENETRATION,
     groupTargets: { community: {}, non_community: {} },
     adventureTierField: "冒险等阶2分级-BI",
     adventureField: "游戏等级-BI",
@@ -752,6 +749,9 @@ function isCommunityUser(row, plan) {
 }
 
 function resolvePenetration(plan) {
+  if (str(plan?.mode) === "two_stage") {
+    return { community: FIXED_COMMUNITY_PENETRATION, non_community: 1 - FIXED_COMMUNITY_PENETRATION };
+  }
   const direct = Number(plan?.communityPenetration);
   if (Number.isFinite(direct) && direct > 0 && direct < 1) {
     return { community: direct, non_community: 1 - direct };
@@ -856,7 +856,7 @@ function applyWeighting() {
 
   if (str(plan.mode) !== "two_stage") {
     const targetsByQ = parseWeightTargets(weightConfig.targetsText);
-    const dims = (weightConfig.dims || []).filter((q) => targetsByQ[q]);
+    const dims = [...FIXED_WEIGHT_DIMS].filter((q) => targetsByQ[q]);
     if (!dims.length) {
       weightState = { applied: false, message: "未配置有效加权维度，已回退未加权" };
       return;
@@ -872,7 +872,7 @@ function applyWeighting() {
   }
 
   const groupTargets = plan.groupTargets || {};
-  const dims = (weightConfig.dims || []).filter((d) => d in (groupTargets.community || {}) || d in (groupTargets.non_community || {}));
+  const dims = [...FIXED_WEIGHT_DIMS].filter((d) => d in (groupTargets.community || {}) || d in (groupTargets.non_community || {}));
   if (!dims.length) {
     weightState = { applied: false, message: "两阶段加权未配置维度，已回退未加权" };
     return;
@@ -1949,7 +1949,7 @@ function renderWeightMappingAndDiagnostics(plan) {
   const weightedNon = sumWeights(nonRows);
   const weightedTotal = weightedComm + weightedNon;
   const p = resolvePenetration(plan);
-  const dims = (weightConfig.dims || []).filter((d) => d in WEIGHT_DIM_VALUES && d !== "community_active");
+  const dims = [...FIXED_WEIGHT_DIMS].filter((d) => d in WEIGHT_DIM_VALUES);
 
   const tables = dims
     .map((dim) => {
@@ -2036,9 +2036,10 @@ function renderRulesPanel() {
   if (weightEnable && weightStats) {
     weightEnable.checked = !!weightConfig.enabled;
     if (dimBox) {
-      const dims = new Set(weightConfig.dims || []);
+      const dims = new Set(FIXED_WEIGHT_DIMS);
       dimBox.querySelectorAll("input[type='checkbox']").forEach((cb) => {
         cb.checked = dims.has(cb.value);
+        cb.disabled = true;
       });
     }
     weightStats.innerHTML = `状态：${weightState.message}`;
@@ -2065,20 +2066,12 @@ function renderRulesPanel() {
 
 function saveWeightFromPanel() {
   const weightEnable = document.getElementById("weightEnable");
-  const dimBox = document.getElementById("weightDimsManual");
   if (!weightEnable) return;
   const parsed = buildPlanFromManualInputs();
-  const selectedDims = dimBox
-    ? [...dimBox.querySelectorAll("input[type='checkbox']:checked")].map((x) => x.value)
-    : Object.keys(WEIGHT_DIM_VALUES);
-  if (!selectedDims.length) {
-    alert("请至少选择一个加权维度");
-    return;
-  }
   weightConfig = {
     ...weightConfig,
     enabled: !!weightEnable.checked,
-    dims: selectedDims,
+    dims: [...FIXED_WEIGHT_DIMS],
     targetsText: JSON.stringify(parsed, null, 2),
   };
   saveWeightConfig();
@@ -2121,19 +2114,18 @@ function applyBiWeightFromPanel() {
     return;
   }
 
-  const parsedDims = Object.keys(parsed.groupTargets?.community || {}).filter((d) => d in WEIGHT_DIM_VALUES);
-  const nextDims = parsedDims.filter((d) => d !== "community_active");
+  const normalizedPlan = { ...parsed, communityPenetration: FIXED_COMMUNITY_PENETRATION };
   weightConfig = {
     ...weightConfig,
-    dims: nextDims.length ? nextDims : weightConfig.dims,
-    targetsText: JSON.stringify(parsed, null, 2),
+    dims: [...FIXED_WEIGHT_DIMS],
+    targetsText: JSON.stringify(normalizedPlan, null, 2),
   };
   saveWeightConfig();
-  buildManualWeightGrid(parsed);
+  buildManualWeightGrid(normalizedPlan);
   const weightStats = document.getElementById("weightStats");
   if (weightStats) {
-    const dimsText = nextDims.length ? nextDims.map((d) => WEIGHT_DIM_LABELS[d] || d).join("、") : "未识别维度";
-    const pen = resolvePenetration(parsed);
+    const dimsText = FIXED_WEIGHT_DIMS.map((d) => WEIGHT_DIM_LABELS[d] || d).join("、");
+    const pen = resolvePenetration(normalizedPlan);
     weightStats.innerHTML = `状态：已从粘贴文本填充。识别维度：${dimsText}；社区渗透率：${pen ? fmtPct1(pen.community) : "--"}`;
   }
   renderRulesPanel();
@@ -2144,7 +2136,7 @@ function apply64PresetWeight() {
   const plan = JSON.parse(JSON.stringify(DEFAULT_WEIGHT_PLAN));
   weightConfig = {
     ...weightConfig,
-    dims: ["gender", "age", "adventure", "spend"],
+    dims: [...FIXED_WEIGHT_DIMS],
     targetsText: JSON.stringify(plan, null, 2),
   };
   saveWeightConfig();

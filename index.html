@@ -159,6 +159,7 @@
 
           <article class="chart-card rules-card rules-primary" style="grid-column: 1 / -1;">
             <h3>加权设置（Raking）</h3>
+            <p class="hint">固定逻辑：组内按性别+年龄+冒险等阶分布校准；组间按社区渗透率 0.3687 校准。</p>
             <div class="rules-stack">
               <label class="rule-inline">
                 <input id="weightEnable" type="checkbox" />
@@ -170,8 +171,6 @@
                   <label class="rule-inline"><input type="checkbox" value="gender" checked />性别（含未知）</label>
                   <label class="rule-inline"><input type="checkbox" value="age" checked />年龄（含未知）</label>
                   <label class="rule-inline"><input type="checkbox" value="adventure" checked />冒险等级2</label>
-                  <label class="rule-inline"><input type="checkbox" value="spend" checked />消费等级</label>
-                  <label class="rule-inline"><input type="checkbox" value="community_active" />社区活跃</label>
                 </div>
               </label>
               <div class="chart-card" style="padding:10px;">
@@ -186,8 +185,8 @@
                 </div>
                 <div class="rules-grid">
                   <label>
-                    社区渗透率（米游社）
-                    <input id="weightManualPenetration" type="number" min="0" max="1" step="0.0001" placeholder="例如 0.62" />
+                    社区渗透率（固定）
+                    <input id="weightManualPenetration" type="number" min="0" max="1" step="0.0001" value="0.3687" readonly />
                   </label>
                 </div>
                 <div id="weightManualGrid"></div>
@@ -374,6 +373,6 @@
     </main>
   </div>
 
-  <script src="./app.js?v=20260317n"></script>
+  <script src="./app.js?v=20260317o"></script>
 </body>
 </html>
