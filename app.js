@@ -554,7 +554,9 @@ function buildManualWeightGrid(plan) {
   const gC = gt.community || {};
   const gN = gt.non_community || {};
 
-  const blocks = Object.entries(WEIGHT_DIM_VALUES).map(([dim, values]) => {
+  const blocks = Object.entries(WEIGHT_DIM_VALUES)
+    .filter(([dim]) => dim !== "community_active")
+    .map(([dim, values]) => {
     const sample = calcSampleDistByGroup(plan, dim, values);
     const rows = values
       .map((v) => {
@@ -582,7 +584,7 @@ function buildManualWeightGrid(plan) {
         </table>
       </div>
     `;
-  });
+    });
   grid.innerHTML = blocks.join("");
 
   const penNode = document.getElementById("weightManualPenetration");
@@ -710,14 +712,21 @@ function readFirstExistingField(row, candidates) {
 }
 
 function isCommunityUser(row, plan) {
+  const normFlag = (v) => {
+    const t = str(v).toLowerCase();
+    if (t === "") return "";
+    if (t === "1" || t === "1.0" || t === "是" || t === "有" || t === "true") return "1";
+    if (t === "0" || t === "0.0" || t === "否" || t === "无" || t === "false") return "0";
+    return t;
+  };
   const preferredField = str(plan.communityField || "近42天内社区活跃");
   const fallbackField = "q27";
   const field = preferredField && preferredField in row ? preferredField : fallbackField;
   const yesDefault = field === "q27" ? ["1", "2", "3", "4"] : ["1"];
   const noDefault = field === "q27" ? ["5"] : ["0"];
-  const yes = new Set((plan.communityYesCodes || yesDefault).map((x) => String(x)));
-  const no = new Set((plan.communityNoCodes || noDefault).map((x) => String(x)));
-  const code = str(row[field]);
+  const yes = new Set((plan.communityYesCodes || yesDefault).map((x) => normFlag(x)));
+  const no = new Set((plan.communityNoCodes || noDefault).map((x) => normFlag(x)));
+  const code = normFlag(row[field]);
   if (yes.has(code)) return true;
   if (no.has(code)) return false;
   return code !== "";
