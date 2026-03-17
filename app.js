@@ -834,6 +834,33 @@ function getSingleTitle(qid, fallback = qid) {
   return (singleConfig[qid] && singleConfig[qid].title) || fallback;
 }
 
+function normalizeBiGender(raw) {
+  const t = str(raw);
+  if (!t) return "";
+  if (t === "1" || t.includes("男")) return "男";
+  if (t === "2" || t.includes("女")) return "女";
+  if (t === "0" || t === "3" || /未知|不详|null|na|n\/a/i.test(t)) return "未知";
+  return "未知";
+}
+
+function getBiGenderField() {
+  const headers = getHeaders();
+  if (headers.includes("性别")) return "性别";
+  return headers.find((h) => /性别|gender|sex/i.test(h) && h !== "q34") || "";
+}
+
+function getBiGenderValue(row) {
+  const field = getBiGenderField();
+  if (!field) return "";
+  return normalizeBiGender(row[field]);
+}
+
+function getQuestionnaireGenderValue(row) {
+  const v = getSingleLabel("q34", str(row.q34));
+  if (v === "男" || v === "女" || v === "不方便透露") return v;
+  return "";
+}
+
 function qidOrder(id) {
   const m = String(id || "").match(/^q(\d+)/i);
   return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
@@ -867,12 +894,29 @@ function getAnalysisQuestions() {
 }
 
 function getAttrQuestions() {
-  const base = [
-    { id: "q34", name: `用户属性｜${getSingleTitle("q34", "Q34")}`, type: "single", col: "q34", labels: getSingleLabels("q34") },
+  const base = [];
+  const biGenderField = getBiGenderField();
+  if (biGenderField) {
+    base.push({
+      id: "bi_gender",
+      name: "用户属性｜性别（BI）",
+      type: "single_derived",
+      labels: { 男: "男", 女: "女", 未知: "未知" },
+      valueFn: (row) => getBiGenderValue(row),
+    });
+  }
+  base.push({
+    id: "q34_survey",
+    name: "用户属性｜性别（问卷）",
+    type: "single_derived",
+    labels: { 男: "男", 女: "女", 不方便透露: "不方便透露" },
+    valueFn: (row) => getQuestionnaireGenderValue(row),
+  });
+  base.push(
     { id: "q1", name: `用户属性｜${getSingleTitle("q1", "Q1")}`, type: "single", col: "q1", labels: getSingleLabels("q1") },
     { id: "q27", name: `用户属性｜${getSingleTitle("q27", "Q27")}`, type: "single", col: "q27", labels: getSingleLabels("q27") },
     { id: "q33", name: `用户属性｜${getSingleTitle("q33", "Q33")}`, type: "single", col: "q33", labels: getSingleLabels("q33") },
-  ];
+  );
   const baseIds = new Set(base.map((x) => x.id));
   const questionDims = getAnalysisQuestions()
     .filter((q) => !baseIds.has(q.id))
@@ -883,6 +927,9 @@ function getAttrQuestions() {
 function rowMatchGroup(row, def, code) {
   if (!def) return false;
   const codeNum = Number(code);
+  if (def.type === "single_derived") {
+    return str(def.valueFn ? def.valueFn(row) : "") === String(code);
+  }
   if (def.type === "rank_top1") {
     const cols = getOptionColumns(getHeaders(), def.prefix);
     for (const { code: c, col } of cols) {
