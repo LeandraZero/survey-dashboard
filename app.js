@@ -511,6 +511,30 @@ function saveWeightHistory() {
   localStorage.setItem(WEIGHT_HISTORY_KEY, JSON.stringify(weightHistory.slice(0, 10)));
 }
 
+function fmtPct1(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "--";
+  return `${(v * 100).toFixed(1)}%`;
+}
+
+function calcSampleDistByGroup(plan, dim, values) {
+  const out = {
+    community: { total: 0, counts: {} },
+    non_community: { total: 0, counts: {} },
+  };
+  values.forEach((v) => {
+    out.community.counts[v] = 0;
+    out.non_community.counts[v] = 0;
+  });
+  for (const row of analysisRows) {
+    const group = isCommunityUser(row, plan) ? "community" : "non_community";
+    const key = getDimValue(row, dim, plan);
+    out[group].total += 1;
+    if (key in out[group].counts) out[group].counts[key] += 1;
+  }
+  return out;
+}
+
 function getWeightDimCandidates() {
   return [
     { id: "gender", name: "性别（男 / 女 / 未知）" },
@@ -529,13 +553,18 @@ function buildManualWeightGrid(plan) {
   const gN = gt.non_community || {};
 
   const blocks = Object.entries(WEIGHT_DIM_VALUES).map(([dim, values]) => {
+    const sample = calcSampleDistByGroup(plan, dim, values);
     const rows = values
       .map((v) => {
         const c = Number(gC?.[dim]?.[v] ?? 0);
         const n = Number(gN?.[dim]?.[v] ?? 0);
+        const sc = sample.community.total > 0 ? sample.community.counts[v] / sample.community.total : NaN;
+        const sn = sample.non_community.total > 0 ? sample.non_community.counts[v] / sample.non_community.total : NaN;
         return `<tr>
           <td>${v}</td>
+          <td>${fmtPct1(sc)}</td>
           <td><input data-weight-cell="1" data-dim="${dim}" data-group="community" data-key="${v}" type="number" step="0.0001" value="${Number.isFinite(c) ? c : 0}" /></td>
+          <td>${fmtPct1(sn)}</td>
           <td><input data-weight-cell="1" data-dim="${dim}" data-group="non_community" data-key="${v}" type="number" step="0.0001" value="${Number.isFinite(n) ? n : 0}" /></td>
         </tr>`;
       })
@@ -543,7 +572,10 @@ function buildManualWeightGrid(plan) {
     return `
       <div class="table-wrap" style="max-height:none;margin-bottom:8px;">
         <table>
-          <thead><tr><th colspan="3">${WEIGHT_DIM_LABELS[dim] || dim}</th></tr><tr><th>分层</th><th>社区用户</th><th>非社区用户</th></tr></thead>
+          <thead>
+            <tr><th colspan="5">${WEIGHT_DIM_LABELS[dim] || dim}</th></tr>
+            <tr><th>分层</th><th>样本(社区)</th><th>大盘(社区)</th><th>样本(非社区)</th><th>大盘(非社区)</th></tr>
+          </thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
