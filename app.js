@@ -2063,24 +2063,48 @@ function parseBiWeightTable(text) {
   const lines = String(text || "")
     .replace(/\u00a0/g, " ")
     .replace(/[；;]\s*加权识别.*$/gim, "")
-    .replace(/[；;]\s*$/gm, "")
     .split(/\r?\n/)
-    .filter((x) => String(x || "").trim() !== "");
+    .map((x) => String(x || ""))
+    .filter((x) => x.trim() !== "");
   if (!lines.length) return null;
 
-  const rows = lines.map(splitBiLine).filter((x) => x.length >= 3);
+  const KNOWN_DIMS = new Set(["整体", "性别", "年龄", "冒险等级1", "冒险等级2", "消费等级", "社区信息"]);
   const data = [];
   let currentDim = "";
-  for (const cells of rows) {
-    const head = cells[0] || "";
-    const label = cells[1] || "";
-    const c = toNum(cells[2]);
-    const n = toNum(cells[3]);
 
-    if (head && !/row labels|维度/i.test(head)) currentDim = head;
-    const dim = currentDim || head;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || /^(维度|dimension)\b/i.test(line) || /维度枚举|grand\s*total/i.test(line)) continue;
+
+    // 兼容 Tab/空格混排：先按“行尾数字列”识别，再反推左侧文案列
+    const numMatches = [...line.matchAll(/-?\d[\d,]*/g)];
+    if (numMatches.length < 2) continue;
+    const c = toNum(numMatches[0][0]);
+    const n = toNum(numMatches[1][0]);
+    const left = line.slice(0, numMatches[0].index).trim();
+    if (!left) continue;
+
+    const tokens = left.split(/\s+/).filter(Boolean);
+    if (!tokens.length) continue;
+
+    let dim = "";
+    let label = "";
+
+    if (tokens.length >= 2 && KNOWN_DIMS.has(tokens[0])) {
+      dim = tokens[0];
+      label = tokens.slice(1).join("");
+      currentDim = dim;
+    } else if (KNOWN_DIMS.has(tokens[0])) {
+      dim = tokens[0];
+      label = "";
+      currentDim = dim;
+    } else {
+      dim = currentDim;
+      label = tokens.join("");
+    }
+
     if (!dim || /row labels/i.test(dim)) continue;
-    if (!label && !(dim === "整体" && cells[1] === "")) continue;
+    if (!label && dim !== "整体") continue;
     data.push({ dim, label, community: c, non: n });
   }
   if (!data.length) return null;
