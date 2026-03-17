@@ -1735,22 +1735,22 @@ function exportOverviewCsv() {
     return;
   }
   const lines = [];
-  lines.push(["模块", "子模块", "指标", "值"].map(csvCell).join(","));
-  lines.push(["总览", "元信息", "样本量", fmtCount(sumWeights(analysisRows))].map(csvCell).join(","));
-  lines.push(["总览", "元信息", "数据更新时间", fmtTime(lastUploadAt)].map(csvCell).join(","));
-  lines.push(["总览", "元信息", "是否加权", isWeightEnabled() ? "是" : "否"].map(csvCell).join(","));
+  lines.push(["模块", "子模块", "指标", "计数", "百分比/值"].map(csvCell).join(","));
+  lines.push(["总览", "元信息", "样本量", fmtCount(sumWeights(analysisRows)), ""].map(csvCell).join(","));
+  lines.push(["总览", "元信息", "数据更新时间", "", fmtTime(lastUploadAt)].map(csvCell).join(","));
+  lines.push(["总览", "元信息", "是否加权", "", isWeightEnabled() ? "是" : "否"].map(csvCell).join(","));
 
   const overall = calcRankTop1(analysisRows, "q4", CHANNELS);
   const overallSorted = [...overall.items].sort((a, b) => b.ratio - a.ratio);
   overallSorted.forEach((x, i) => {
-    lines.push(["整体讨论心智首选", "Q4", `Top${i + 1}-${x.name}`, `${fmtPct(x.ratio)} (${fmtCount(x.count)})`].map(csvCell).join(","));
+    lines.push(["整体讨论心智首选", "Q4", `Top${i + 1}-${x.name}`, fmtCount(x.count), fmtPct(x.ratio)].map(csvCell).join(","));
   });
 
   OVERVIEW_SCENES.forEach((scene) => {
     const top1 = calcRankTop1(analysisRows, scene.rank, CHANNELS);
     const sorted = [...top1.items].sort((a, b) => b.ratio - a.ratio);
     sorted.forEach((x, i) => {
-      lines.push([scene.name, scene.rank.toUpperCase(), `Top${i + 1}-${x.name}`, `${fmtPct(x.ratio)} (${fmtCount(x.count)})`].map(csvCell).join(","));
+      lines.push([scene.name, scene.rank.toUpperCase(), `Top${i + 1}-${x.name}`, fmtCount(x.count), fmtPct(x.ratio)].map(csvCell).join(","));
     });
   });
 
