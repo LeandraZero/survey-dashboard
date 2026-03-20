@@ -180,6 +180,13 @@ let weightConfig = {
 let weightState = { applied: false, message: "未启用" };
 let weightHistory = [];
 let appStarted = false;
+let headersCache = [];
+let headersCacheRowsRef = null;
+let biGenderFieldCache = "";
+let biGenderFieldCacheRowsRef = null;
+let weightPlanCacheText = "";
+let weightPlanCacheObj = null;
+let crossRenderTimer = null;
 
 const WEIGHT_DIM_VALUES = {
   gender: ["男", "女", "未知"],
@@ -403,11 +410,14 @@ function getRowIdentity(row, fallback = "") {
 
 function getHeaders() {
   if (!rawRows.length) return [];
+  if (headersCacheRowsRef === rawRows && headersCache.length) return headersCache;
   const keys = new Set();
   for (const r of rawRows) {
     for (const k of Object.keys(r || {})) keys.add(k);
   }
-  return [...keys];
+  headersCache = [...keys];
+  headersCacheRowsRef = rawRows;
+  return headersCache;
 }
 
 function pickAutoField(headers, preferredPrefix, fallback = "") {
@@ -924,9 +934,16 @@ function normalizeBiGender(raw) {
 }
 
 function getBiGenderField() {
+  if (biGenderFieldCacheRowsRef === rawRows && biGenderFieldCache) return biGenderFieldCache;
   const headers = getHeaders();
-  if (headers.includes("性别")) return "性别";
-  return headers.find((h) => /性别|gender|sex/i.test(h) && h !== "q34") || "";
+  if (headers.includes("性别")) {
+    biGenderFieldCache = "性别";
+    biGenderFieldCacheRowsRef = rawRows;
+    return biGenderFieldCache;
+  }
+  biGenderFieldCache = headers.find((h) => /性别|gender|sex/i.test(h) && h !== "q34") || "";
+  biGenderFieldCacheRowsRef = rawRows;
+  return biGenderFieldCache;
 }
 
 function getBiGenderValue(row) {
@@ -942,10 +959,18 @@ function getQuestionnaireGenderValue(row) {
 }
 
 function getCurrentWeightPlan() {
+  const raw = str(weightConfig.targetsText || "");
+  if (weightPlanCacheText === raw && weightPlanCacheObj) return weightPlanCacheObj;
   try {
-    const parsed = parseWeightPlan(weightConfig.targetsText || "");
-    if (parsed && typeof parsed === "object") return parsed;
+    const parsed = parseWeightPlan(raw);
+    if (parsed && typeof parsed === "object") {
+      weightPlanCacheText = raw;
+      weightPlanCacheObj = parsed;
+      return parsed;
+    }
   } catch {}
+  weightPlanCacheText = "";
+  weightPlanCacheObj = DEFAULT_WEIGHT_PLAN;
   return DEFAULT_WEIGHT_PLAN;
 }
 
@@ -1861,6 +1886,14 @@ function renderCross() {
       .join("")}`;
     tbody.appendChild(tr);
   }
+}
+
+function scheduleRenderCross() {
+  if (crossRenderTimer) clearTimeout(crossRenderTimer);
+  crossRenderTimer = setTimeout(() => {
+    crossRenderTimer = null;
+    renderCross();
+  }, 0);
 }
 
 function renderUploadMeta() {
@@ -2809,8 +2842,8 @@ function bindTabs() {
     document.getElementById(`panel-${tab}`).classList.add("active");
 
     if (tab === "cross") {
-      renderCross();
-      setTimeout(renderCross, 80);
+      scheduleRenderCross();
+      setTimeout(scheduleRenderCross, 80);
     }
     if (tab === "rules") renderRulesPanel();
     if (tab === "wordcloud") {
@@ -2833,7 +2866,7 @@ function bindActions() {
   });
 
   ["analysisQuestion", "analysisAttr", "analysisFilter"].forEach((id) => {
-    document.getElementById(id).addEventListener("change", renderCross);
+    document.getElementById(id).addEventListener("change", scheduleRenderCross);
   });
   const modeNode = document.getElementById("analysisFilterMode");
   if (modeNode) {
@@ -2841,7 +2874,7 @@ function bindActions() {
       const btn = e.target.closest(".mode-btn");
       if (!btn) return;
       setFilterMode(btn.dataset.mode === "exclude" ? "exclude" : "include");
-      renderCross();
+      scheduleRenderCross();
     });
   }
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
