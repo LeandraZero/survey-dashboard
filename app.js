@@ -941,6 +941,24 @@ function getQuestionnaireGenderValue(row) {
   return "";
 }
 
+function getCurrentWeightPlan() {
+  try {
+    const parsed = parseWeightPlan(weightConfig.targetsText || "");
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch {}
+  return DEFAULT_WEIGHT_PLAN;
+}
+
+function getBiAdventureValue(row) {
+  const plan = getCurrentWeightPlan();
+  return getDimValue(row, "adventure", plan);
+}
+
+function getBiSpendValue(row) {
+  const plan = getCurrentWeightPlan();
+  return getDimValue(row, "spend", plan);
+}
+
 function qidOrder(id) {
   const m = String(id || "").match(/^q(\d+)/i);
   return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
@@ -970,7 +988,37 @@ function getAnalysisQuestions() {
     .filter((x) => !optionIds.has(x.id))
     .sort((a, b) => Number(a.id.replace("q", "")) - Number(b.id.replace("q", "")));
 
-  return [...optionDefs, ...singleDefs].sort(sortByQid);
+  const derivedDefs = [];
+  if (getBiGenderField()) {
+    derivedDefs.push({
+      id: "bi_gender",
+      name: "BI｜性别",
+      type: "single_derived",
+      labels: { 男: "男", 女: "女" },
+      valueFn: (row) => {
+        const v = getBiGenderValue(row);
+        return v === "男" || v === "女" ? v : "";
+      },
+    });
+  }
+  derivedDefs.push(
+    {
+      id: "bi_adventure",
+      name: "BI｜冒险等级2",
+      type: "single_derived",
+      labels: { "0-30": "0-30", "31-45": "31-45", "46-60": "46-60", 未知: "未知" },
+      valueFn: (row) => getBiAdventureValue(row),
+    },
+    {
+      id: "bi_spend",
+      name: "BI｜付费等级",
+      type: "single_derived",
+      labels: { 大R: "大R", 中R: "中R", 小R: "小R", 无付费: "无付费", 未知: "未知" },
+      valueFn: (row) => getBiSpendValue(row),
+    },
+  );
+
+  return [...optionDefs, ...singleDefs, ...derivedDefs].sort(sortByQid);
 }
 
 function getAttrQuestions() {
@@ -1353,6 +1401,24 @@ function calcSingle(rows, col, labels) {
 }
 
 function getQuestionDistribution(rows, def) {
+  if (def.type === "single_derived") {
+    const labels = def.labels || {};
+    const answered = rows.filter((r) => str(def.valueFn ? def.valueFn(r) : "") !== "");
+    const denom = sumWeights(answered);
+    const counts = {};
+    for (const code of Object.keys(labels)) counts[code] = 0;
+    for (const r of answered) {
+      const v = str(def.valueFn ? def.valueFn(r) : "");
+      if (v in counts) counts[v] += getRowWeight(r);
+    }
+    const items = Object.entries(labels).map(([code, name]) => ({
+      code: String(code),
+      name,
+      count: counts[code] || 0,
+      ratio: denom ? (counts[code] || 0) / denom : 0,
+    }));
+    return { denominator: denom, items };
+  }
   if (def.type === "rank_top1") return calcRankTop1(rows, def.prefix, def.labels);
   if (def.type === "multi") {
     const maxCode = def.id === "q2" ? 9 : Infinity;
