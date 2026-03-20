@@ -1848,6 +1848,66 @@ function exportOverviewCsv() {
   downloadTextFile(`overview-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
 }
 
+function exportGenderProfileCsv() {
+  if (!analysisRows.length) {
+    alert("暂无可导出的样本数据");
+    return;
+  }
+
+  const rowDefs = [
+    { name: "性别-总计", fn: () => true },
+    { name: "性别-男", fn: (r) => getBiGenderValue(r) === "男" || str(r.q34) === "1" },
+    { name: "性别-女", fn: (r) => getBiGenderValue(r) === "女" || str(r.q34) === "2" },
+  ];
+
+  const colDefs = [
+    { name: "总计", fn: () => true },
+    { name: "性别-男", fn: (r) => getBiGenderValue(r) === "男" || str(r.q34) === "1" },
+    { name: "性别-女", fn: (r) => getBiGenderValue(r) === "女" || str(r.q34) === "2" },
+    { name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
+    { name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
+    { name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
+    { name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
+    { name: "抽卡决策/原石/强度对比", fn: (r) => hasQ2ByCode(r, 1) || hasQ2AllDiscuss(r) },
+    { name: "角色配队/养成/手法", fn: (r) => hasQ2ByCode(r, 2) || hasQ2AllDiscuss(r) },
+    { name: "探索解谜攻略", fn: (r) => hasQ2ByCode(r, 3) || hasQ2AllDiscuss(r) },
+    { name: "剧情解析", fn: (r) => hasQ2ByCode(r, 4) || hasQ2AllDiscuss(r) },
+    { name: "剧情讨论", fn: (r) => hasQ2ByCode(r, 5) || hasQ2AllDiscuss(r) },
+    { name: "同人", fn: (r) => hasQ2ByCode(r, 6) || hasQ2AllDiscuss(r) },
+    { name: "游戏外活动", fn: (r) => hasQ2ByCode(r, 7) || hasQ2AllDiscuss(r) },
+    { name: "周边", fn: (r) => hasQ2ByCode(r, 8) || hasQ2AllDiscuss(r) },
+    { name: "Cosplay", fn: (r) => hasQ2ByCode(r, 9) || hasQ2AllDiscuss(r) },
+  ];
+
+  const colRows = colDefs.map((c) => ({ ...c, rows: analysisRows.filter(c.fn) }));
+  const colTotals = colRows.map((c) => sumWeights(c.rows));
+
+  const header1 = ["行维度"];
+  const header2 = [""];
+  colDefs.forEach((c) => {
+    header1.push(c.name, c.name);
+    header2.push("计数", "百分比");
+  });
+  const lines = [
+    header1.map(csvCell).join(","),
+    header2.map(csvCell).join(","),
+  ];
+
+  rowDefs.forEach((rowDef) => {
+    const row = [rowDef.name];
+    colRows.forEach((c, idx) => {
+      const inter = c.rows.filter(rowDef.fn);
+      const cnt = sumWeights(inter);
+      const denom = colTotals[idx];
+      row.push(fmtCount(cnt));
+      row.push(denom > 0 ? fmtPct(cnt / denom) : "--");
+    });
+    lines.push(row.map(csvCell).join(","));
+  });
+
+  downloadTextFile(`gender-profile-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
+}
+
 function renderCross() {
   const analysisQuestions = getAnalysisQuestions();
   const attrQuestions = getAttrQuestions();
@@ -2880,6 +2940,8 @@ function bindActions() {
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
   const btnExportFullCross = document.getElementById("btnExportFullCross");
   if (btnExportFullCross) btnExportFullCross.addEventListener("click", exportFullCrossTableCsv);
+  const btnExportGenderProfile = document.getElementById("btnExportGenderProfile");
+  if (btnExportGenderProfile) btnExportGenderProfile.addEventListener("click", exportGenderProfileCsv);
   const btnExportOverview = document.getElementById("btnExportOverview");
   if (btnExportOverview) btnExportOverview.addEventListener("click", exportOverviewCsv);
   document.getElementById("btnSaveRules").addEventListener("click", saveRulesFromPanel);
