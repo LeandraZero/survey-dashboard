@@ -1966,6 +1966,13 @@ function exportAgeProfileCsv() {
     lines.push(row.map(csvCell).join(","));
   });
 
+  const totalRow = ["总计"];
+  colTotals.forEach((denom) => {
+    totalRow.push(fmtCount(denom));
+    totalRow.push(denom > 0 ? "100.0%" : "--");
+  });
+  lines.push(totalRow.map(csvCell).join(","));
+
   downloadTextFile(`age-profile-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
 }
 
