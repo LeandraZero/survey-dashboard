@@ -1823,6 +1823,7 @@ function buildFullCrossSegments(genderMode = "bi") {
       ? [
           { key: "male_survey", name: "性别(问卷)-男", fn: (r) => getQuestionnaireGenderValue(r) === "男" },
           { key: "female_survey", name: "性别(问卷)-女", fn: (r) => getQuestionnaireGenderValue(r) === "女" },
+          { key: "unknown_survey", name: "性别(问卷)-未知", fn: (r) => getQuestionnaireGenderValue(r) === "未知" },
         ]
       : [
           { key: "male_bi", name: "性别(BI)-男", fn: (r) => getBiGenderValue(r) === "男" },
@@ -1911,7 +1912,7 @@ function exportFullCrossTableCsv(genderMode = "bi") {
     ];
     segDist.forEach((d) => {
       qTotalRow.push(fmtCount(d.denominator));
-      qTotalRow.push("");
+      qTotalRow.push(d.denominator > 0 ? "100.0%" : "--");
     });
     lines.push(qTotalRow.map(csvCell).join(","));
   }
@@ -1959,11 +1960,13 @@ function buildGenderProfileDefs(genderMode = "bi") {
       { name: `${labelPrefix}-总计`, fn: () => true },
       { name: `${labelPrefix}-男`, fn: (r) => genderValue(r) === "男" },
       { name: `${labelPrefix}-女`, fn: (r) => genderValue(r) === "女" },
+      ...(isSurvey ? [{ name: `${labelPrefix}-未知`, fn: (r) => genderValue(r) === "未知" }] : []),
     ],
     colDefs: [
       { name: "总计", fn: () => true },
       { name: `${labelPrefix}-男`, fn: (r) => genderValue(r) === "男" },
       { name: `${labelPrefix}-女`, fn: (r) => genderValue(r) === "女" },
+      ...(isSurvey ? [{ name: `${labelPrefix}-未知`, fn: (r) => genderValue(r) === "未知" }] : []),
       { name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
       { name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
       { name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
@@ -2014,6 +2017,13 @@ function exportGenderProfileCsv(genderMode = "bi") {
     });
     lines.push(row.map(csvCell).join(","));
   });
+
+  const totalRow = ["总计"];
+  colTotals.forEach((denom) => {
+    totalRow.push(fmtCount(denom));
+    totalRow.push(denom > 0 ? "100.0%" : "--");
+  });
+  lines.push(totalRow.map(csvCell).join(","));
 
   const filename = genderMode === "survey" ? `survey-gender-profile-${Date.now()}.csv` : `gender-profile-${Date.now()}.csv`;
   downloadTextFile(filename, lines.join("\n"), "text/csv;charset=utf-8");
