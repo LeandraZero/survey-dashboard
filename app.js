@@ -3204,27 +3204,55 @@ async function readFileRows(file, csvEncoding = "auto") {
 }
 
 function decodeCsvText(buf, preferEncoding = "auto") {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  if (preferEncoding === "auto") {
+    // 优先按 BOM 识别，避免俄语/英文 CSV 被错误判成 UTF-16。
+    if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+      return new TextDecoder("utf-16le").decode(bytes);
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+      return new TextDecoder("utf-16be").decode(bytes);
+    }
+  }
+
   const encodings = ["utf-8", "gb18030", "gbk", "utf-16le"];
   if (preferEncoding !== "auto") {
     try {
-      return new TextDecoder(preferEncoding).decode(buf);
+      return new TextDecoder(preferEncoding).decode(bytes);
     } catch {
-      return new TextDecoder("utf-8").decode(buf);
+      return new TextDecoder("utf-8").decode(bytes);
     }
   }
 
   const tryDecode = (encoding) => {
     try {
-      const text = new TextDecoder(encoding).decode(buf);
+      const text = new TextDecoder(encoding).decode(bytes);
       const head = (text.split(/\r?\n/, 1)[0] || "").slice(0, 4000);
       // 评分：替换符、常见乱码字符越少越好；中文关键词越多越好
       const badCharCount = (text.match(/\uFFFD/g) || []).length;
       const mojibakeCount = (text.match(/[ÃÕÐÂË¼ÎÊÏÂµ]/g) || []).length;
       const cjkCount = (head.match(/[\u4e00-\u9fff]/g) || []).length;
+      const qHeaderCount = (head.match(/\bq\d+(_\d+)?_/gi) || []).length;
+      const commaCount = (head.match(/,/g) || []).length;
+      const quoteCount = (head.match(/"/g) || []).length;
+      const nullCount = (text.match(/\u0000/g) || []).length;
+      const cyrillicCount = (head.match(/[\u0400-\u04FF]/g) || []).length;
       const keywordCount = ["原神", "米游社", "请问", "剧情", "探索", "渠道", "性别", "q1", "q2", "q3"]
         .map((k) => (head.includes(k) ? 1 : 0))
         .reduce((a, b) => a + b, 0);
-      const score = keywordCount * 8 + Math.min(cjkCount, 80) - badCharCount * 10 - mojibakeCount * 6;
+      const score =
+        keywordCount * 8 +
+        Math.min(cjkCount, 80) +
+        Math.min(cyrillicCount, 80) +
+        qHeaderCount * 3 +
+        Math.min(commaCount, 120) +
+        Math.min(quoteCount, 60) -
+        badCharCount * 10 -
+        mojibakeCount * 6 -
+        nullCount * 20;
       return { encoding, text, score, badCharCount, mojibakeCount };
     } catch {
       return { encoding, text: "", score: Number.NEGATIVE_INFINITY };
@@ -3232,7 +3260,7 @@ function decodeCsvText(buf, preferEncoding = "auto") {
   };
 
   const candidates = encodings.map(tryDecode).sort((a, b) => b.score - a.score);
-  return candidates[0]?.text || new TextDecoder("utf-8").decode(buf);
+  return candidates[0]?.text || new TextDecoder("utf-8").decode(bytes);
 }
 
 async function importFiles() {
