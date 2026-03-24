@@ -54,7 +54,7 @@ const DEFAULT_WEIGHT_PLAN = {
   spendField: "累计付费",
 };
 
-const CHANNELS = {
+const DEFAULT_CHANNELS = {
   1: "抖音",
   2: "B站",
   3: "小红书",
@@ -187,6 +187,8 @@ let biGenderFieldCacheRowsRef = null;
 let weightPlanCacheText = "";
 let weightPlanCacheObj = null;
 let crossRenderTimer = null;
+let channelLabelsCache = new Map();
+let channelLabelsCacheRowsRef = null;
 
 const WEIGHT_DIM_VALUES = {
   gender: ["男", "女", "未知"],
@@ -203,6 +205,62 @@ const WEIGHT_DIM_LABELS = {
   spend: "消费等级",
   community_active: "社区活跃",
 };
+
+function clearDerivedCaches() {
+  channelLabelsCache = new Map();
+  channelLabelsCacheRowsRef = rawRows;
+}
+
+function getChannelLabelsForQuestion(qid) {
+  if (!qid) return { ...DEFAULT_CHANNELS };
+  if (channelLabelsCacheRowsRef !== rawRows) clearDerivedCaches();
+  if (channelLabelsCache.has(qid)) return channelLabelsCache.get(qid);
+
+  const headers = getHeaders();
+  const re = new RegExp(`^${qid}_(\\d+)_(.+)$`);
+  const labels = {};
+  for (const h of headers) {
+    const m = h.match(re);
+    if (!m) continue;
+    labels[Number(m[1])] = m[2];
+  }
+
+  const sorted = Object.fromEntries(
+    Object.entries(labels)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([k, v]) => [Number(k), v]),
+  );
+  const finalLabels = Object.keys(sorted).length ? sorted : { ...DEFAULT_CHANNELS };
+  channelLabelsCache.set(qid, finalLabels);
+  return finalLabels;
+}
+
+function getCommunityPlatformName(labels = {}) {
+  const entries = Object.entries(labels || {});
+  if (!entries.length) return "米游社";
+  const byCode10 = entries.find(([code]) => Number(code) === 10);
+  if (byCode10?.[1]) return byCode10[1];
+
+  const keywordRegex = /(米游社|miyoushe|hoyolab|hoYoLAB|官方社区|official community)/i;
+  const matched = entries.find(([, name]) => keywordRegex.test(String(name || "")));
+  return matched?.[1] || entries[0][1] || "米游社";
+}
+
+function isCommunityPlatformName(name, labels) {
+  return str(name) !== "" && str(name) === str(getCommunityPlatformName(labels));
+}
+
+function getNameHighlightClass(name, labels) {
+  return isCommunityPlatformName(name, labels) ? "mys-text" : "";
+}
+
+function getFillHighlightClass(name, labels) {
+  return isCommunityPlatformName(name, labels) ? "mys-fill" : "";
+}
+
+function getPctHighlightClass(name, labels) {
+  return isCommunityPlatformName(name, labels) ? "mys-pct" : "";
+}
 
 function unlockApp() {
   const gate = document.getElementById("accessGate");
@@ -1277,6 +1335,7 @@ function recomputeAnalysisRows() {
       analysisRows: isWeightEnabled() ? Number(fmtCount(sumWeights(analysisRows))) : analysisRows.length,
     };
   }
+  clearDerivedCaches();
 }
 
 function dedupRows(rows) {
@@ -1456,15 +1515,16 @@ function drawBarChart(elId, rows, title, opts = {}) {
   const node = document.getElementById(elId);
   if (!node) return;
   const preserveOrder = !!opts.preserveOrder;
+  const labels = opts.labels || {};
   const sorted = preserveOrder ? [...rows] : [...rows].sort((a, b) => b.ratio - a.ratio);
   node.classList.add("barlist");
   node.innerHTML = sorted
     .map(
       (x) => `
       <div class="bar-row">
-        <div class="bar-name ${x.name === "米游社" ? "mys-text" : ""}" title="${x.name}">${x.name}</div>
-        <div class="bar-track"><div class="bar-fill ${x.name === "米游社" ? "mys-fill" : ""}" style="width:${(x.ratio * 100).toFixed(1)}%"></div></div>
-        <div class="bar-pct ${x.name === "米游社" ? "mys-pct" : ""}">${fmtPct(x.ratio)}</div>
+        <div class="bar-name ${getNameHighlightClass(x.name, labels)}" title="${x.name}">${x.name}</div>
+        <div class="bar-track"><div class="bar-fill ${getFillHighlightClass(x.name, labels)}" style="width:${(x.ratio * 100).toFixed(1)}%"></div></div>
+        <div class="bar-pct ${getPctHighlightClass(x.name, labels)}">${fmtPct(x.ratio)}</div>
       </div>`,
     )
     .join("");
@@ -1493,8 +1553,8 @@ function bindChartWindowResize() {
   });
 }
 
-function topRankLinesHtml(sortedItems, limit = 3) {
-  const formatName = (name) => (name === "米游社" ? `<span class="mys-text">米游社</span>` : name || "--");
+function topRankLinesHtml(sortedItems, limit = 3, labels = {}) {
+  const formatName = (name) => (isCommunityPlatformName(name, labels) ? `<span class="mys-text">${name}</span>` : name || "--");
   return sortedItems
     .slice(0, limit)
     .map(
@@ -1504,7 +1564,7 @@ function topRankLinesHtml(sortedItems, limit = 3) {
           <span class="top-rank-label" data-rank="${idx + 1}">Top${idx + 1}：</span>
           <span class="top-rank-name">${formatName(x ? x.name : "--")}</span>
         </span>
-        <span class="top1-value top-rank-value ${x && x.name === "米游社" ? "mys-pct" : ""}">${x ? fmtPct(x.ratio) : "--"}</span>
+        <span class="top1-value top-rank-value ${x ? getPctHighlightClass(x.name, labels) : ""}">${x ? fmtPct(x.ratio) : "--"}</span>
       </div>`,
     )
     .join("");
@@ -1516,24 +1576,26 @@ function renderOverview() {
   const sampleNode = document.getElementById("overviewSampleLine");
   if (sampleNode) sampleNode.textContent = `总样本：${fmtCount(sumWeights(analysisRows))}`;
 
-  const top1 = calcRankTop1(analysisRows, "q4", CHANNELS);
+  const overallLabels = getChannelLabelsForQuestion("q4");
+  const communityPlatformName = getCommunityPlatformName(overallLabels);
+  const top1 = calcRankTop1(analysisRows, "q4", overallLabels);
   const sortedTop1 = [...top1.items].sort((a, b) => b.ratio - a.ratio);
   const rankNode = document.getElementById("ovOverallTopRanks");
-  if (rankNode) rankNode.innerHTML = topRankLinesHtml(sortedTop1, 3);
-  const mys = sortedTop1.find((x) => x.name === "米游社");
-  const rank = sortedTop1.findIndex((x) => x.name === "米游社");
+  if (rankNode) rankNode.innerHTML = topRankLinesHtml(sortedTop1, 3, overallLabels);
+  const mys = sortedTop1.find((x) => x.name === communityPlatformName);
+  const rank = sortedTop1.findIndex((x) => x.name === communityPlatformName);
   const mysExtraNode = document.getElementById("ovOverallMysExtra");
   if (mysExtraNode) {
     if (rank > 2 && mys) {
       mysExtraNode.style.display = "";
-      mysExtraNode.innerHTML = `<span class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${rank + 1}：</span><span class="mys-text">米游社</span></span><span class="top1-value top-rank-value mys-pct">${fmtPct(mys.ratio)}</span></span>`;
+      mysExtraNode.innerHTML = `<span class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${rank + 1}：</span><span class="mys-text">${communityPlatformName}</span></span><span class="top1-value top-rank-value mys-pct">${fmtPct(mys.ratio)}</span></span>`;
     } else {
       mysExtraNode.style.display = "none";
       mysExtraNode.textContent = "";
     }
   }
 
-  drawBarChart("chartTop1", top1.items, "Top1 渠道占比");
+  drawBarChart("chartTop1", top1.items, "Top1 渠道占比", { labels: overallLabels });
   renderOverviewSceneGrid();
 }
 
@@ -1543,17 +1605,21 @@ function renderOverviewSceneGrid() {
   if (!grid || !tooltip) return;
 
   const sceneData = OVERVIEW_SCENES.map((scene) => {
-    const top1 = calcRankTop1(analysisRows, scene.rank, CHANNELS);
+    const channelLabels = getChannelLabelsForQuestion(scene.rank);
+    const communityPlatformName = getCommunityPlatformName(channelLabels);
+    const top1 = calcRankTop1(analysisRows, scene.rank, channelLabels);
     const top1Sorted = [...top1.items].sort((a, b) => b.ratio - a.ratio);
-    const mysRank = top1Sorted.findIndex((x) => x.name === "米游社");
-    const mys = top1Sorted.find((x) => x.name === "米游社");
-    const channels = calcRankTop1(analysisRows, scene.rank, CHANNELS).items.sort((a, b) => b.ratio - a.ratio);
+    const mysRank = top1Sorted.findIndex((x) => x.name === communityPlatformName);
+    const mys = top1Sorted.find((x) => x.name === communityPlatformName);
+    const channels = calcRankTop1(analysisRows, scene.rank, channelLabels).items.sort((a, b) => b.ratio - a.ratio);
     return {
       ...scene,
       top3: top1Sorted.slice(0, 3),
       mysRank,
       mys,
       channels,
+      channelLabels,
+      communityPlatformName,
     };
   });
 
@@ -1562,8 +1628,8 @@ function renderOverviewSceneGrid() {
       (s, i) => `
       <article class="scene-card" data-scene-index="${i}">
         <div class="scene-title">${s.name}</div>
-        ${topRankLinesHtml(s.top3, 3)}
-        ${s.mys && s.mysRank > 2 ? `<div class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${s.mysRank + 1}：</span><span class="mys-text">米游社</span></span><span class="top1-value top-rank-value mys-pct">${fmtPct(s.mys.ratio)}</span></div>` : ""}
+        ${topRankLinesHtml(s.top3, 3, s.channelLabels)}
+        ${s.mys && s.mysRank > 2 ? `<div class="scene-line top-rank-line rank-extra"><span class="top-rank-head"><span class="top-rank-label">Top${s.mysRank + 1}：</span><span class="mys-text">${s.communityPlatformName}</span></span><span class="top1-value top-rank-value mys-pct">${fmtPct(s.mys.ratio)}</span></div>` : ""}
       </article>`,
     )
     .join("");
@@ -1573,9 +1639,9 @@ function renderOverviewSceneGrid() {
       .map(
         (c) => `
         <div class="bar-row">
-          <div class="bar-name ${c.name === "米游社" ? "mys-text" : ""}">${c.name}</div>
-          <div class="bar-track"><div class="bar-fill ${c.name === "米游社" ? "mys-fill" : ""}" style="width:${(c.ratio * 100).toFixed(1)}%"></div></div>
-          <div class="bar-pct ${c.name === "米游社" ? "mys-pct" : ""}">${fmtPct(c.ratio)}</div>
+          <div class="bar-name ${getNameHighlightClass(c.name, scene.channelLabels)}">${c.name}</div>
+          <div class="bar-track"><div class="bar-fill ${getFillHighlightClass(c.name, scene.channelLabels)}" style="width:${(c.ratio * 100).toFixed(1)}%"></div></div>
+          <div class="bar-pct ${getPctHighlightClass(c.name, scene.channelLabels)}">${fmtPct(c.ratio)}</div>
         </div>`,
       )
       .join("");
@@ -1831,14 +1897,16 @@ function exportOverviewCsv() {
   lines.push(["总览", "元信息", "数据更新时间", "", fmtTime(lastUploadAt)].map(csvCell).join(","));
   lines.push(["总览", "元信息", "是否加权", "", isWeightEnabled() ? "是" : "否"].map(csvCell).join(","));
 
-  const overall = calcRankTop1(analysisRows, "q4", CHANNELS);
+  const overallLabels = getChannelLabelsForQuestion("q4");
+  const overall = calcRankTop1(analysisRows, "q4", overallLabels);
   const overallSorted = [...overall.items].sort((a, b) => b.ratio - a.ratio);
   overallSorted.forEach((x, i) => {
     lines.push(["整体讨论心智首选", "Q4", `Top${i + 1}-${x.name}`, fmtCount(x.count), fmtPct(x.ratio)].map(csvCell).join(","));
   });
 
   OVERVIEW_SCENES.forEach((scene) => {
-    const top1 = calcRankTop1(analysisRows, scene.rank, CHANNELS);
+    const sceneLabels = getChannelLabelsForQuestion(scene.rank);
+    const top1 = calcRankTop1(analysisRows, scene.rank, sceneLabels);
     const sorted = [...top1.items].sort((a, b) => b.ratio - a.ratio);
     sorted.forEach((x, i) => {
       lines.push([scene.name, scene.rank.toUpperCase(), `Top${i + 1}-${x.name}`, fmtCount(x.count), fmtPct(x.ratio)].map(csvCell).join(","));
