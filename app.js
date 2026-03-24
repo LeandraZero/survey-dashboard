@@ -1814,14 +1814,20 @@ function csvCell(v) {
   return `"${val.replace(/"/g, '""')}"`;
 }
 
-function buildFullCrossSegments() {
+function buildFullCrossSegments(genderMode = "bi") {
   const segments = [];
   segments.push({ key: "all", name: "全部", fn: () => true });
 
-  const genderSegments = [
-    { key: "male_bi", name: "性别(BI)-男", fn: (r) => getBiGenderValue(r) === "男" },
-    { key: "female_bi", name: "性别(BI)-女", fn: (r) => getBiGenderValue(r) === "女" },
-  ];
+  const genderSegments =
+    genderMode === "survey"
+      ? [
+          { key: "male_survey", name: "性别(问卷)-男", fn: (r) => getQuestionnaireGenderValue(r) === "男" },
+          { key: "female_survey", name: "性别(问卷)-女", fn: (r) => getQuestionnaireGenderValue(r) === "女" },
+        ]
+      : [
+          { key: "male_bi", name: "性别(BI)-男", fn: (r) => getBiGenderValue(r) === "男" },
+          { key: "female_bi", name: "性别(BI)-女", fn: (r) => getBiGenderValue(r) === "女" },
+        ];
   segments.push(...genderSegments);
 
   const ageSegments = [
@@ -1846,7 +1852,7 @@ function buildFullCrossSegments() {
   return segments;
 }
 
-function exportFullCrossTableCsv() {
+function exportFullCrossTableCsv(genderMode = "bi") {
   const questions = getAnalysisQuestions();
   if (!questions.length) {
     alert("暂无可导出的题目");
@@ -1857,7 +1863,7 @@ function exportFullCrossTableCsv() {
     return;
   }
 
-  const segments = buildFullCrossSegments();
+  const segments = buildFullCrossSegments(genderMode);
   const segRows = segments.map((s) => ({ ...s, rows: analysisRows.filter(s.fn) }));
   const header = ["题目", "选项"];
   segRows.forEach((s) => {
@@ -1910,7 +1916,8 @@ function exportFullCrossTableCsv() {
     lines.push(qTotalRow.map(csvCell).join(","));
   }
 
-  downloadTextFile(`full-cross-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
+  const filename = genderMode === "survey" ? `full-cross-survey-gender-${Date.now()}.csv` : `full-cross-${Date.now()}.csv`;
+  downloadTextFile(filename, lines.join("\n"), "text/csv;charset=utf-8");
 }
 
 function exportOverviewCsv() {
@@ -1943,36 +1950,44 @@ function exportOverviewCsv() {
   downloadTextFile(`overview-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
 }
 
-function exportGenderProfileCsv() {
+function buildGenderProfileDefs(genderMode = "bi") {
+  const isSurvey = genderMode === "survey";
+  const genderValue = (r) => (isSurvey ? getQuestionnaireGenderValue(r) : getBiGenderValue(r));
+  const labelPrefix = isSurvey ? "问卷性别" : "性别";
+  return {
+    rowDefs: [
+      { name: `${labelPrefix}-总计`, fn: () => true },
+      { name: `${labelPrefix}-男`, fn: (r) => genderValue(r) === "男" },
+      { name: `${labelPrefix}-女`, fn: (r) => genderValue(r) === "女" },
+    ],
+    colDefs: [
+      { name: "总计", fn: () => true },
+      { name: `${labelPrefix}-男`, fn: (r) => genderValue(r) === "男" },
+      { name: `${labelPrefix}-女`, fn: (r) => genderValue(r) === "女" },
+      { name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
+      { name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
+      { name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
+      { name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
+      { name: "抽卡决策/原石/强度对比", fn: (r) => hasQ2ByCode(r, 1) || hasQ2AllDiscuss(r) },
+      { name: "角色配队/养成/手法", fn: (r) => hasQ2ByCode(r, 2) || hasQ2AllDiscuss(r) },
+      { name: "探索解谜攻略", fn: (r) => hasQ2ByCode(r, 3) || hasQ2AllDiscuss(r) },
+      { name: "剧情解析", fn: (r) => hasQ2ByCode(r, 4) || hasQ2AllDiscuss(r) },
+      { name: "剧情讨论", fn: (r) => hasQ2ByCode(r, 5) || hasQ2AllDiscuss(r) },
+      { name: "同人", fn: (r) => hasQ2ByCode(r, 6) || hasQ2AllDiscuss(r) },
+      { name: "游戏外活动", fn: (r) => hasQ2ByCode(r, 7) || hasQ2AllDiscuss(r) },
+      { name: "周边", fn: (r) => hasQ2ByCode(r, 8) || hasQ2AllDiscuss(r) },
+      { name: "Cosplay", fn: (r) => hasQ2ByCode(r, 9) || hasQ2AllDiscuss(r) },
+    ],
+  };
+}
+
+function exportGenderProfileCsv(genderMode = "bi") {
   if (!analysisRows.length) {
     alert("暂无可导出的样本数据");
     return;
   }
 
-  const rowDefs = [
-    { name: "性别-总计", fn: () => true },
-    { name: "性别-男", fn: (r) => getBiGenderValue(r) === "男" || str(r.q34) === "1" },
-    { name: "性别-女", fn: (r) => getBiGenderValue(r) === "女" || str(r.q34) === "2" },
-  ];
-
-  const colDefs = [
-    { name: "总计", fn: () => true },
-    { name: "性别-男", fn: (r) => getBiGenderValue(r) === "男" || str(r.q34) === "1" },
-    { name: "性别-女", fn: (r) => getBiGenderValue(r) === "女" || str(r.q34) === "2" },
-    { name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
-    { name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
-    { name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
-    { name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
-    { name: "抽卡决策/原石/强度对比", fn: (r) => hasQ2ByCode(r, 1) || hasQ2AllDiscuss(r) },
-    { name: "角色配队/养成/手法", fn: (r) => hasQ2ByCode(r, 2) || hasQ2AllDiscuss(r) },
-    { name: "探索解谜攻略", fn: (r) => hasQ2ByCode(r, 3) || hasQ2AllDiscuss(r) },
-    { name: "剧情解析", fn: (r) => hasQ2ByCode(r, 4) || hasQ2AllDiscuss(r) },
-    { name: "剧情讨论", fn: (r) => hasQ2ByCode(r, 5) || hasQ2AllDiscuss(r) },
-    { name: "同人", fn: (r) => hasQ2ByCode(r, 6) || hasQ2AllDiscuss(r) },
-    { name: "游戏外活动", fn: (r) => hasQ2ByCode(r, 7) || hasQ2AllDiscuss(r) },
-    { name: "周边", fn: (r) => hasQ2ByCode(r, 8) || hasQ2AllDiscuss(r) },
-    { name: "Cosplay", fn: (r) => hasQ2ByCode(r, 9) || hasQ2AllDiscuss(r) },
-  ];
+  const { rowDefs, colDefs } = buildGenderProfileDefs(genderMode);
 
   const colRows = colDefs.map((c) => ({ ...c, rows: analysisRows.filter(c.fn) }));
   const colTotals = colRows.map((c) => sumWeights(c.rows));
@@ -2000,7 +2015,8 @@ function exportGenderProfileCsv() {
     lines.push(row.map(csvCell).join(","));
   });
 
-  downloadTextFile(`gender-profile-${Date.now()}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
+  const filename = genderMode === "survey" ? `survey-gender-profile-${Date.now()}.csv` : `gender-profile-${Date.now()}.csv`;
+  downloadTextFile(filename, lines.join("\n"), "text/csv;charset=utf-8");
 }
 
 function exportAgeProfileCsv() {
@@ -3102,9 +3118,13 @@ function bindActions() {
   }
   document.getElementById("btnExportCross").addEventListener("click", exportCrossTableCsv);
   const btnExportFullCross = document.getElementById("btnExportFullCross");
-  if (btnExportFullCross) btnExportFullCross.addEventListener("click", exportFullCrossTableCsv);
+  if (btnExportFullCross) btnExportFullCross.addEventListener("click", () => exportFullCrossTableCsv("bi"));
+  const btnExportFullCrossSurveyGender = document.getElementById("btnExportFullCrossSurveyGender");
+  if (btnExportFullCrossSurveyGender) btnExportFullCrossSurveyGender.addEventListener("click", () => exportFullCrossTableCsv("survey"));
   const btnExportGenderProfile = document.getElementById("btnExportGenderProfile");
-  if (btnExportGenderProfile) btnExportGenderProfile.addEventListener("click", exportGenderProfileCsv);
+  if (btnExportGenderProfile) btnExportGenderProfile.addEventListener("click", () => exportGenderProfileCsv("bi"));
+  const btnExportSurveyGenderProfile = document.getElementById("btnExportSurveyGenderProfile");
+  if (btnExportSurveyGenderProfile) btnExportSurveyGenderProfile.addEventListener("click", () => exportGenderProfileCsv("survey"));
   const btnExportAgeProfile = document.getElementById("btnExportAgeProfile");
   if (btnExportAgeProfile) btnExportAgeProfile.addEventListener("click", exportAgeProfileCsv);
   const btnExportOverview = document.getElementById("btnExportOverview");
