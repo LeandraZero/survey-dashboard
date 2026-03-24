@@ -1028,6 +1028,19 @@ function getSingleTitle(qid, fallback = qid) {
   return (singleConfig[qid] && singleConfig[qid].title) || fallback;
 }
 
+function getSurveyGenderDisplayName() {
+  const qid = getSurveyGenderQid() || "q34";
+  const title = getSingleTitle(qid, qid);
+  return /性别|gender|sex/i.test(title) ? title : `Q${Number(String(qid).replace(/\D/g, "")) || ""} 性别（问卷识别）`.trim();
+}
+
+function getSurveyAgeDisplayName() {
+  const qid = getSurveyAgeQid() || "";
+  if (!qid) return "年龄（问卷）";
+  const title = getSingleTitle(qid, qid);
+  return /年龄|出生年份|birth|yearofbirth|birthyear|age/i.test(title) ? title : `Q${Number(String(qid).replace(/\D/g, "")) || ""} 年龄（问卷识别）`.trim();
+}
+
 function normalizeBiGender(raw) {
   const t = str(raw);
   if (!t) return "";
@@ -1221,11 +1234,13 @@ function sortByQid(a, b) {
 }
 
 function getAnalysisQuestions() {
+  const qHeaders = new Set(getHeaders().filter((h) => /^q\d+$/.test(h)));
   const optionDefs = getOptionQuestionDefs();
   const optionIds = new Set(optionDefs.map((x) => x.id));
 
   const singleDefs = Object.keys(singleConfig)
     .filter((qid) => /^q\d+$/.test(qid))
+    .filter((qid) => qHeaders.has(qid))
     .map((qid) => ({
       id: qid,
       name: getSingleTitle(qid, qid),
@@ -1272,6 +1287,7 @@ function getAnalysisQuestions() {
 
 function getAttrQuestions() {
   const base = [];
+  const qHeaders = new Set(getHeaders().filter((h) => /^q\d+$/.test(h)));
   const biGenderField = getBiGenderField();
   if (biGenderField) {
     base.push({
@@ -1284,7 +1300,7 @@ function getAttrQuestions() {
   }
   base.push({
     id: "survey_gender",
-    name: `用户属性｜${getSingleTitle(getSurveyGenderQid() || "q34", "性别（问卷）")}`,
+    name: `用户属性｜${getSurveyGenderDisplayName()}`,
     type: "single_derived",
     labels: { 男: "男", 女: "女", 未知: "未知" },
     valueFn: (row) => getQuestionnaireGenderValue(row),
@@ -1292,16 +1308,14 @@ function getAttrQuestions() {
   if (getSurveyAgeQid()) {
     base.push({
       id: "survey_age",
-      name: `用户属性｜${getSingleTitle(getSurveyAgeQid(), "年龄（问卷）")}`,
+      name: `用户属性｜${getSurveyAgeDisplayName()}`,
       type: "single_derived",
       labels: { "19-25": "19-25", "26-30": "26-30", "31-35": "31-35", "35+": "35+", 未知: "未知" },
       valueFn: (row) => getSurveyAgeBucket(row),
     });
   }
-  base.push(
-    { id: "q1", name: `用户属性｜${getSingleTitle("q1", "Q1")}`, type: "single", col: "q1", labels: getSingleLabels("q1") },
-    { id: "q27", name: `用户属性｜${getSingleTitle("q27", "Q27")}`, type: "single", col: "q27", labels: getSingleLabels("q27") },
-  );
+  if (qHeaders.has("q1")) base.push({ id: "q1", name: `用户属性｜${getSingleTitle("q1", "Q1")}`, type: "single", col: "q1", labels: getSingleLabels("q1") });
+  if (qHeaders.has("q27")) base.push({ id: "q27", name: `用户属性｜${getSingleTitle("q27", "Q27")}`, type: "single", col: "q27", labels: getSingleLabels("q27") });
   const baseIds = new Set(base.map((x) => x.id));
   const questionDims = getAnalysisQuestions()
     .filter((q) => !baseIds.has(q.id))
