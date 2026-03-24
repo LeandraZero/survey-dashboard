@@ -238,12 +238,15 @@ function getChannelLabelsForQuestion(qid) {
 function getCommunityPlatformName(labels = {}) {
   const entries = Object.entries(labels || {});
   if (!entries.length) return "米游社";
-  const byCode10 = entries.find(([code]) => Number(code) === 10);
-  if (byCode10?.[1]) return byCode10[1];
 
   const keywordRegex = /(米游社|miyoushe|hoyolab|hoYoLAB|官方社区|official community)/i;
   const matched = entries.find(([, name]) => keywordRegex.test(String(name || "")));
-  return matched?.[1] || entries[0][1] || "米游社";
+  if (matched?.[1]) return matched[1];
+
+  const byCode10 = entries.find(([code]) => Number(code) === 10);
+  if (byCode10?.[1]) return byCode10[1];
+
+  return entries[0][1] || "米游社";
 }
 
 function isCommunityPlatformName(name, labels) {
