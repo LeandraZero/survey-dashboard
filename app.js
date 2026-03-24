@@ -2170,6 +2170,35 @@ function renderUploadMeta() {
   ].join("<br/>");
 }
 
+function renderUploadRulePanel() {
+  const headers = getHeaders();
+  const fieldNode = document.getElementById("uploadTerminateField");
+  const valueNode = document.getElementById("uploadTerminateValue");
+  const hintNode = document.getElementById("uploadTerminateHint");
+  if (!fieldNode || !valueNode || !hintNode) return;
+
+  setSelectOptionsWithRaw("uploadTerminateField", ["", ...headers]);
+  fieldNode.value = currentRules.terminateField || "";
+  valueNode.value = currentRules.terminateValue || "1";
+  const suggested = buildDefaultRules(headers).terminateField || "未识别";
+  hintNode.textContent = `当前终止口径：${currentRules.terminateField || "未设置"} = ${currentRules.terminateValue || "1"}；自动建议字段：${suggested}`;
+}
+
+function saveUploadTerminateRule() {
+  const fieldNode = document.getElementById("uploadTerminateField");
+  const valueNode = document.getElementById("uploadTerminateValue");
+  if (!fieldNode || !valueNode) return;
+  currentRules = {
+    ...currentRules,
+    terminateField: fieldNode.value,
+    terminateValue: valueNode.value || "1",
+  };
+  saveRules();
+  recomputeAnalysisRows();
+  renderAll();
+  alert("导入口径已保存并重算");
+}
+
 function parseOptionLines(text) {
   const lines = String(text || "").split(/\r?\n/);
   const labels = {};
@@ -3139,6 +3168,8 @@ function bindActions() {
   if (btnExportAgeProfile) btnExportAgeProfile.addEventListener("click", exportAgeProfileCsv);
   const btnExportOverview = document.getElementById("btnExportOverview");
   if (btnExportOverview) btnExportOverview.addEventListener("click", exportOverviewCsv);
+  const btnSaveUploadTerminate = document.getElementById("btnSaveUploadTerminate");
+  if (btnSaveUploadTerminate) btnSaveUploadTerminate.addEventListener("click", saveUploadTerminateRule);
   document.getElementById("btnSaveRules").addEventListener("click", saveRulesFromPanel);
   document.getElementById("btnResetRules").addEventListener("click", resetRulesToDefault);
   const btnSaveWeight = document.getElementById("btnSaveWeight");
@@ -3163,6 +3194,7 @@ function bindActions() {
 function renderAll() {
   renderWeightModeSwitch();
   renderUploadMeta();
+  renderUploadRulePanel();
   renderOverview();
   renderRulesPanel();
   renderSingleConfigPanel();

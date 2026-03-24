@@ -376,11 +376,30 @@
           <div class="import-stats" id="importStats"></div>
         </div>
 
+        <article class="chart-card" style="margin-top:16px;">
+          <h3>导入口径</h3>
+          <p class="hint">终止问卷规则会直接影响“继续作答样本”。如果需要让 Q2 选择第 11 项的人终止问卷，请在这里确认字段和值。</p>
+          <div class="rules-grid">
+            <label>
+              终止题字段
+              <select id="uploadTerminateField"></select>
+            </label>
+            <label>
+              终止值
+              <input id="uploadTerminateValue" type="text" placeholder="例如 1" />
+            </label>
+          </div>
+          <p class="hint" id="uploadTerminateHint"></p>
+          <div class="upload-actions">
+            <button id="btnSaveUploadTerminate">保存导入口径并重算</button>
+          </div>
+        </article>
+
         <div class="upload-log" id="uploadLog"></div>
       </section>
     </main>
   </div>
 
-  <script src="./app.js?v=20260324f"></script>
+  <script src="./app.js?v=20260324g"></script>
 </body>
 </html>
