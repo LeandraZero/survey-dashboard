@@ -482,14 +482,15 @@ function getHeaders() {
 }
 
 function pickAutoField(headers, preferredPrefix, fallback = "") {
-  const found = headers.find((h) => h.startsWith(preferredPrefix));
+  const re = new RegExp(`^${String(preferredPrefix).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:_|$)`, "i");
+  const found = headers.find((h) => re.test(String(h || "")));
   return found || fallback;
 }
 
 function buildDefaultRules(headers = []) {
   return {
     ...DEFAULT_RULES,
-    terminateField: pickAutoField(headers, "q2_11_", ""),
+    terminateField: pickAutoField(headers, "q2_11", ""),
     durationField: headers.includes("duration") ? "duration" : "",
   };
 }
@@ -501,7 +502,14 @@ function loadRules(headers = []) {
   } catch {
     currentRules = buildDefaultRules(headers);
   }
+  if (currentRules.terminateField && !headers.includes(currentRules.terminateField)) {
+    currentRules.terminateField = pickAutoField(headers, "q2_11", "");
+  }
+  if (currentRules.durationField && !headers.includes(currentRules.durationField)) {
+    currentRules.durationField = headers.includes("duration") ? "duration" : "";
+  }
   if (!Array.isArray(currentRules.requiredFields)) currentRules.requiredFields = [];
+  currentRules.requiredFields = currentRules.requiredFields.filter((f) => headers.includes(f));
 }
 
 function saveRules() {
