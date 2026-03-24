@@ -1020,8 +1020,25 @@ function applyWeighting() {
   weightState = { applied: true, message: `已加权（两阶段）维度：${dims.join(", ")}；社区样本 ${commRows.length}，非社区样本 ${nonRows.length}` };
 }
 
-function getSingleLabels(qid) {
+function getStoredSingleLabels(qid) {
   return (singleConfig[qid] && singleConfig[qid].labels) || {};
+}
+
+function getSingleLabels(qid) {
+  const stored = getStoredSingleLabels(qid);
+  const surveyGenderQid = surveyGenderQidCache || "";
+  if (qid && surveyGenderQid && qid === surveyGenderQid) {
+    const values = rawRows
+      .map((row) => str(row[qid]))
+      .filter(Boolean)
+      .slice(0, 60);
+    const uniqValues = [...new Set(values)];
+    const isThreeCodeLike = uniqValues.length > 0 && uniqValues.length <= 3 && uniqValues.every((x) => /^(1|2|3)$/.test(x));
+    if (isThreeCodeLike) {
+      return { 1: "男", 2: "女", 3: "未知" };
+    }
+  }
+  return stored;
 }
 
 function getSingleTitle(qid, fallback = qid) {
@@ -1094,7 +1111,7 @@ function detectSurveyFieldQids() {
 
   const scoreGender = (qid) => {
     const title = str(getSingleTitle(qid, qid)).toLowerCase();
-    const labels = Object.values(getSingleLabels(qid) || {}).map((x) => str(x).toLowerCase());
+    const labels = Object.values(getStoredSingleLabels(qid) || {}).map((x) => str(x).toLowerCase());
     const values = sampleValues(qid).map((x) => str(x).toLowerCase());
     const uniqValues = [...new Set(values)];
     const isThreeCodeLike = uniqValues.length > 0 && uniqValues.length <= 3 && uniqValues.every((x) => /^(1|2|3)$/.test(x));
@@ -1113,7 +1130,7 @@ function detectSurveyFieldQids() {
 
   const scoreAge = (qid) => {
     const title = str(getSingleTitle(qid, qid)).toLowerCase();
-    const labels = Object.values(getSingleLabels(qid) || {}).map((x) => str(x));
+    const labels = Object.values(getStoredSingleLabels(qid) || {}).map((x) => str(x));
     const values = sampleValues(qid).map((x) => str(x));
     const uniqValues = [...new Set(values)];
     const isThreeCodeLike = uniqValues.length > 0 && uniqValues.length <= 3 && uniqValues.every((x) => /^(1|2|3)$/.test(x));
@@ -1234,6 +1251,7 @@ function sortByQid(a, b) {
 }
 
 function getAnalysisQuestions() {
+  detectSurveyFieldQids();
   const qHeaders = new Set(getHeaders().filter((h) => /^q\d+$/.test(h)));
   const optionDefs = getOptionQuestionDefs();
   const optionIds = new Set(optionDefs.map((x) => x.id));
@@ -1286,6 +1304,7 @@ function getAnalysisQuestions() {
 }
 
 function getAttrQuestions() {
+  detectSurveyFieldQids();
   const base = [];
   const qHeaders = new Set(getHeaders().filter((h) => /^q\d+$/.test(h)));
   const biGenderField = getBiGenderField();
