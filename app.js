@@ -189,6 +189,9 @@ let weightPlanCacheObj = null;
 let crossRenderTimer = null;
 let channelLabelsCache = new Map();
 let channelLabelsCacheRowsRef = null;
+let surveyGenderQidCache = "";
+let surveyAgeQidCache = "";
+let surveyFieldCacheRowsRef = null;
 
 const WEIGHT_DIM_VALUES = {
   gender: ["男", "女", "未知"],
@@ -209,6 +212,9 @@ const WEIGHT_DIM_LABELS = {
 function clearDerivedCaches() {
   channelLabelsCache = new Map();
   channelLabelsCacheRowsRef = rawRows;
+  surveyGenderQidCache = "";
+  surveyAgeQidCache = "";
+  surveyFieldCacheRowsRef = rawRows;
 }
 
 function getChannelLabelsForQuestion(qid) {
@@ -761,6 +767,35 @@ function ageBucketFromQ33(code) {
   return "未知";
 }
 
+function bucketAgeFromText(raw) {
+  const t = str(raw).trim();
+  if (!t) return "";
+  const normalized = t.replace(/[–—~～至]/g, "-").replace(/\s+/g, "").toLowerCase();
+  if (/未知|null|na|n\/a|unspecified|unknown/.test(normalized)) return "未知";
+  if (/(19-25|19to25|19_25|19~25|19-25岁)/.test(normalized)) return "19-25";
+  if (/(26-30|26to30|26_30|26~30|26-30岁)/.test(normalized)) return "26-30";
+  if (/(31-35|31to35|31_35|31~35|31-35岁)/.test(normalized)) return "31-35";
+  if (/(35\+|35岁以上|35up|35plus)/.test(normalized)) return "35+";
+
+  const year = Number(normalized.replace(/[^\d]/g, ""));
+  if (Number.isFinite(year) && year >= 1900 && year <= 2100) {
+    const age = new Date().getFullYear() - year;
+    if (age >= 19 && age <= 25) return "19-25";
+    if (age >= 26 && age <= 30) return "26-30";
+    if (age >= 31 && age <= 35) return "31-35";
+    if (age > 35) return "35+";
+  }
+
+  const ageNum = Number(normalized.replace(/[^\d]/g, ""));
+  if (Number.isFinite(ageNum) && ageNum > 0 && ageNum < 120) {
+    if (ageNum <= 25) return "19-25";
+    if (ageNum <= 30) return "26-30";
+    if (ageNum <= 35) return "31-35";
+    return "35+";
+  }
+  return "";
+}
+
 function adventureBucketFromValue(v) {
   const n = Number(str(v).replace(/[^\d]/g, ""));
   if (!Number.isFinite(n)) return "未知";
@@ -854,7 +889,7 @@ function getDimValue(row, dim, plan) {
     if (v === "男" || v === "女" || v === "未知") return v;
     return "未知";
   }
-  if (d === "age") return ageBucketFromQ33(str(row.q33));
+  if (d === "age") return getSurveyAgeBucket(row);
   if (d === "community_active") return isCommunityUser(row, plan) ? "有" : "无";
   if (d === "adventure") {
     const tierRaw = readFirstExistingField(row, [plan.adventureTierField, "冒险等阶2分级-BI", "冒险等级2-BI", "冒险等级2"]);
@@ -1018,6 +1053,61 @@ function normalizeQuestionnaireGender(raw) {
   return "未知";
 }
 
+function detectSurveyFieldQids() {
+  if (surveyFieldCacheRowsRef === rawRows && (surveyGenderQidCache || surveyAgeQidCache)) {
+    return { genderQid: surveyGenderQidCache, ageQid: surveyAgeQidCache };
+  }
+
+  const candidates = Object.keys(singleConfig || {}).filter((qid) => /^q\d+$/.test(qid));
+  let genderQid = "";
+  let ageQid = "";
+
+  const scoreGender = (qid) => {
+    const title = str(getSingleTitle(qid, qid)).toLowerCase();
+    const labels = Object.values(getSingleLabels(qid) || {}).map((x) => str(x).toLowerCase());
+    let score = 0;
+    if (/性别|gender|sex/.test(title)) score += 5;
+    if (labels.some((x) => /男|male|man|m$/.test(x))) score += 2;
+    if (labels.some((x) => /女|female|woman|f$/.test(x))) score += 2;
+    if (labels.some((x) => /不方便透露|unknown|other|prefer/.test(x))) score += 1;
+    return score;
+  };
+
+  const scoreAge = (qid) => {
+    const title = str(getSingleTitle(qid, qid)).toLowerCase();
+    const labels = Object.values(getSingleLabels(qid) || {}).map((x) => str(x));
+    let score = 0;
+    if (/年龄|出生年份|birth|yearofbirth|birthyear|age/.test(title.replace(/\s+/g, ""))) score += 5;
+    if (labels.some((x) => /19-25|26-30|31-35|35\+|198\d|199\d|200\d|岁/.test(x))) score += 2;
+    return score;
+  };
+
+  let bestGender = { qid: "", score: 0 };
+  let bestAge = { qid: "", score: 0 };
+  candidates.forEach((qid) => {
+    const g = scoreGender(qid);
+    if (g > bestGender.score) bestGender = { qid, score: g };
+    const a = scoreAge(qid);
+    if (a > bestAge.score) bestAge = { qid, score: a };
+  });
+
+  genderQid = bestGender.score > 0 ? bestGender.qid : "";
+  ageQid = bestAge.score > 0 ? bestAge.qid : "";
+
+  surveyGenderQidCache = genderQid;
+  surveyAgeQidCache = ageQid;
+  surveyFieldCacheRowsRef = rawRows;
+  return { genderQid, ageQid };
+}
+
+function getSurveyGenderQid() {
+  return detectSurveyFieldQids().genderQid;
+}
+
+function getSurveyAgeQid() {
+  return detectSurveyFieldQids().ageQid;
+}
+
 function getBiGenderField() {
   if (biGenderFieldCacheRowsRef === rawRows && biGenderFieldCache) return biGenderFieldCache;
   const headers = getHeaders();
@@ -1026,7 +1116,8 @@ function getBiGenderField() {
     biGenderFieldCacheRowsRef = rawRows;
     return biGenderFieldCache;
   }
-  biGenderFieldCache = headers.find((h) => /性别|gender|sex/i.test(h) && h !== "q34") || "";
+  const surveyGenderQid = getSurveyGenderQid();
+  biGenderFieldCache = headers.find((h) => /性别|gender|sex/i.test(h) && h !== surveyGenderQid) || "";
   biGenderFieldCacheRowsRef = rawRows;
   return biGenderFieldCache;
 }
@@ -1038,9 +1129,25 @@ function getBiGenderValue(row) {
 }
 
 function getQuestionnaireGenderValue(row) {
-  const raw = str(row.q34);
-  const labeled = getSingleLabel("q34", raw);
+  const qid = getSurveyGenderQid() || "q34";
+  const raw = str(row[qid]);
+  const labeled = getSingleLabel(qid, raw);
   return normalizeQuestionnaireGender(labeled || raw);
+}
+
+function getSurveyAgeBucket(row) {
+  const qid = getSurveyAgeQid();
+  if (!qid) return "未知";
+  const raw = str(row[qid]);
+  const labels = getSingleLabels(qid);
+  if (Object.keys(labels).length) {
+    const labeled = getSingleLabel(qid, raw);
+    const bucket = bucketAgeFromText(labeled);
+    if (bucket) return bucket;
+    if (qid === "q33") return ageBucketFromQ33(raw);
+  }
+  const direct = bucketAgeFromText(raw);
+  return direct || "未知";
 }
 
 function getCurrentWeightPlan() {
@@ -1144,16 +1251,24 @@ function getAttrQuestions() {
     });
   }
   base.push({
-    id: "q34_survey",
-    name: "用户属性｜性别（问卷）",
+    id: "survey_gender",
+    name: `用户属性｜${getSingleTitle(getSurveyGenderQid() || "q34", "性别（问卷）")}`,
     type: "single_derived",
     labels: { 男: "男", 女: "女", 未知: "未知" },
     valueFn: (row) => getQuestionnaireGenderValue(row),
   });
+  if (getSurveyAgeQid()) {
+    base.push({
+      id: "survey_age",
+      name: `用户属性｜${getSingleTitle(getSurveyAgeQid(), "年龄（问卷）")}`,
+      type: "single_derived",
+      labels: { "19-25": "19-25", "26-30": "26-30", "31-35": "31-35", "35+": "35+", 未知: "未知" },
+      valueFn: (row) => getSurveyAgeBucket(row),
+    });
+  }
   base.push(
     { id: "q1", name: `用户属性｜${getSingleTitle("q1", "Q1")}`, type: "single", col: "q1", labels: getSingleLabels("q1") },
     { id: "q27", name: `用户属性｜${getSingleTitle("q27", "Q27")}`, type: "single", col: "q27", labels: getSingleLabels("q27") },
-    { id: "q33", name: `用户属性｜${getSingleTitle("q33", "Q33")}`, type: "single", col: "q33", labels: getSingleLabels("q33") },
   );
   const baseIds = new Set(base.map((x) => x.id));
   const questionDims = getAnalysisQuestions()
@@ -1832,11 +1947,11 @@ function buildFullCrossSegments(genderMode = "bi") {
   segments.push(...genderSegments);
 
   const ageSegments = [
-    { key: "19_25", name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
-    { key: "26_30", name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
-    { key: "31_35", name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
-    { key: "35_plus", name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
-    { key: "age_unknown", name: "年龄-未知", fn: (r) => ageBucketFromQ33(str(r.q33)) === "未知" },
+    { key: "19_25", name: "年龄-19-25", fn: (r) => getSurveyAgeBucket(r) === "19-25" },
+    { key: "26_30", name: "年龄-26-30", fn: (r) => getSurveyAgeBucket(r) === "26-30" },
+    { key: "31_35", name: "年龄-31-35", fn: (r) => getSurveyAgeBucket(r) === "31-35" },
+    { key: "35_plus", name: "年龄-35+", fn: (r) => getSurveyAgeBucket(r) === "35+" },
+    { key: "age_unknown", name: "年龄-未知", fn: (r) => getSurveyAgeBucket(r) === "未知" },
   ];
   segments.push(...ageSegments);
 
@@ -1967,10 +2082,10 @@ function buildGenderProfileDefs(genderMode = "bi") {
       { name: `${labelPrefix}-男`, fn: (r) => genderValue(r) === "男" },
       { name: `${labelPrefix}-女`, fn: (r) => genderValue(r) === "女" },
       ...(isSurvey ? [{ name: `${labelPrefix}-未知`, fn: (r) => genderValue(r) === "未知" }] : []),
-      { name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
-      { name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
-      { name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
-      { name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
+      { name: "年龄-19-25", fn: (r) => getSurveyAgeBucket(r) === "19-25" },
+      { name: "年龄-26-30", fn: (r) => getSurveyAgeBucket(r) === "26-30" },
+      { name: "年龄-31-35", fn: (r) => getSurveyAgeBucket(r) === "31-35" },
+      { name: "年龄-35+", fn: (r) => getSurveyAgeBucket(r) === "35+" },
       { name: "抽卡决策/原石/强度对比", fn: (r) => hasQ2ByCode(r, 1) || hasQ2AllDiscuss(r) },
       { name: "角色配队/养成/手法", fn: (r) => hasQ2ByCode(r, 2) || hasQ2AllDiscuss(r) },
       { name: "探索解谜攻略", fn: (r) => hasQ2ByCode(r, 3) || hasQ2AllDiscuss(r) },
@@ -2036,20 +2151,20 @@ function exportAgeProfileCsv() {
   }
 
   const rowDefs = [
-    { name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
-    { name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
-    { name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
-    { name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
+    { name: "年龄-19-25", fn: (r) => getSurveyAgeBucket(r) === "19-25" },
+    { name: "年龄-26-30", fn: (r) => getSurveyAgeBucket(r) === "26-30" },
+    { name: "年龄-31-35", fn: (r) => getSurveyAgeBucket(r) === "31-35" },
+    { name: "年龄-35+", fn: (r) => getSurveyAgeBucket(r) === "35+" },
   ];
 
   const colDefs = [
     { name: "总计", fn: () => true },
-    { name: "性别-男", fn: (r) => getBiGenderValue(r) === "男" || str(r.q34) === "1" },
-    { name: "性别-女", fn: (r) => getBiGenderValue(r) === "女" || str(r.q34) === "2" },
-    { name: "年龄-19-25", fn: (r) => ageBucketFromQ33(str(r.q33)) === "19-25" },
-    { name: "年龄-26-30", fn: (r) => ageBucketFromQ33(str(r.q33)) === "26-30" },
-    { name: "年龄-31-35", fn: (r) => ageBucketFromQ33(str(r.q33)) === "31-35" },
-    { name: "年龄-35+", fn: (r) => ageBucketFromQ33(str(r.q33)) === "35+" },
+    { name: "性别-男", fn: (r) => getBiGenderValue(r) === "男" || getQuestionnaireGenderValue(r) === "男" },
+    { name: "性别-女", fn: (r) => getBiGenderValue(r) === "女" || getQuestionnaireGenderValue(r) === "女" },
+    { name: "年龄-19-25", fn: (r) => getSurveyAgeBucket(r) === "19-25" },
+    { name: "年龄-26-30", fn: (r) => getSurveyAgeBucket(r) === "26-30" },
+    { name: "年龄-31-35", fn: (r) => getSurveyAgeBucket(r) === "31-35" },
+    { name: "年龄-35+", fn: (r) => getSurveyAgeBucket(r) === "35+" },
     { name: "抽卡决策/原石/强度对比", fn: (r) => hasQ2ByCode(r, 1) || hasQ2AllDiscuss(r) },
     { name: "角色配队/养成/手法", fn: (r) => hasQ2ByCode(r, 2) || hasQ2AllDiscuss(r) },
     { name: "探索解谜攻略", fn: (r) => hasQ2ByCode(r, 3) || hasQ2AllDiscuss(r) },
@@ -2441,7 +2556,7 @@ function renderWeightMappingAndDiagnostics(plan) {
 
   const communityField = str(plan.communityField || "近42天内社区活跃");
   const genderField = str(plan.genderField || getBiGenderField() || "q34");
-  const ageField = "q33";
+  const ageField = str(getSurveyAgeQid() || "未识别");
   const adventureField = str(plan.adventureTierField || plan.adventureField || "冒险等阶2分级-BI");
 
   mapNode.innerHTML = [
@@ -3379,7 +3494,11 @@ function renderWordcloudPanel() {
     if (!parts.length) continue;
     rowsForTable.push({
       id: str(row.id),
-      age: getSingleLabel("q33", str(row.q33)),
+      age: (() => {
+        const qid = getSurveyAgeQid();
+        if (!qid) return "-";
+        return getSingleLabel(qid, str(row[qid])) || str(row[qid]) || "-";
+      })(),
       gender: getQuestionnaireGenderValue(row),
       answer: parts.join(" | "),
     });
