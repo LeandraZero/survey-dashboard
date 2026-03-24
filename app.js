@@ -1083,12 +1083,15 @@ function detectSurveyFieldQids() {
     const title = str(getSingleTitle(qid, qid)).toLowerCase();
     const labels = Object.values(getSingleLabels(qid) || {}).map((x) => str(x).toLowerCase());
     const values = sampleValues(qid).map((x) => str(x).toLowerCase());
+    const uniqValues = [...new Set(values)];
+    const isThreeCodeLike = uniqValues.length > 0 && uniqValues.length <= 3 && uniqValues.every((x) => /^(1|2|3)$/.test(x));
     let score = 0;
     if (/性别|gender|sex/.test(title)) score += 5;
     if (labels.some((x) => /男|male|man|m$/.test(x))) score += 2;
     if (labels.some((x) => /女|female|woman|f$/.test(x))) score += 2;
     if (labels.some((x) => /不方便透露|unknown|other|prefer/.test(x))) score += 1;
     if (values.some((x) => /^(1|2|3)$/.test(x))) score += 1;
+    if (isThreeCodeLike) score += 3;
     if (values.some((x) => /^(male|man|m|男)$/.test(x))) score += 3;
     if (values.some((x) => /^(female|woman|f|女)$/.test(x))) score += 3;
     if (values.some((x) => /unknown|prefer|other|不方便透露|未知/.test(x))) score += 2;
@@ -1099,12 +1102,15 @@ function detectSurveyFieldQids() {
     const title = str(getSingleTitle(qid, qid)).toLowerCase();
     const labels = Object.values(getSingleLabels(qid) || {}).map((x) => str(x));
     const values = sampleValues(qid).map((x) => str(x));
+    const uniqValues = [...new Set(values)];
+    const isThreeCodeLike = uniqValues.length > 0 && uniqValues.length <= 3 && uniqValues.every((x) => /^(1|2|3)$/.test(x));
     let score = 0;
     if (/年龄|出生年份|birth|yearofbirth|birthyear|age/.test(title.replace(/\s+/g, ""))) score += 5;
     if (labels.some((x) => /19-25|26-30|31-35|35\+|198\d|199\d|200\d|岁/.test(x))) score += 2;
     if (values.some((x) => /19-25|26-30|31-35|35\+|35岁/.test(x))) score += 3;
     if (values.some((x) => /^(19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40)$/.test(str(x)))) score += 2;
     if (values.some((x) => /^(19|20)\d{2}$/.test(str(x)))) score += 3;
+    if (isThreeCodeLike && !values.some((x) => /19-25|26-30|31-35|35\+|19\d{2}|20\d{2}/.test(x))) score -= 6;
     return score;
   };
 
