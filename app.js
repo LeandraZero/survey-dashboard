@@ -839,8 +839,8 @@ function getDimValue(row, dim, plan) {
     const biRaw = readFirstExistingField(row, [plan.genderField, "性别-BI", "性别", "gender_bi", "gender"]);
     const bi = normalizeBiGender(biRaw);
     if (bi) return bi;
-    const v = getSingleLabel("q34", str(row.q34));
-    if (v === "男" || v === "女") return v;
+    const v = getQuestionnaireGenderValue(row);
+    if (v === "男" || v === "女" || v === "未知") return v;
     return "未知";
   }
   if (d === "age") return ageBucketFromQ33(str(row.q33));
@@ -991,6 +991,22 @@ function normalizeBiGender(raw) {
   return "未知";
 }
 
+function normalizeQuestionnaireGender(raw) {
+  const t = str(raw).trim();
+  if (!t) return "";
+  const n = t.toLowerCase().replace(/\s+/g, "");
+  if (t === "1" || /^(male|man|m)$/i.test(t) || /^(male|man|m)$/i.test(n) || t.includes("男")) return "男";
+  if (t === "2" || /^(female|woman|f)$/i.test(t) || /^(female|woman|f)$/i.test(n) || t.includes("女")) return "女";
+  if (
+    t === "3" ||
+    /不方便透露|保密|未知|其他/.test(t) ||
+    /^(unknown|other|others|prefernottosay|rathernotsay|notdisclose|notspecified|unspecified|na|n\/a|null)$/i.test(n)
+  ) {
+    return "未知";
+  }
+  return "未知";
+}
+
 function getBiGenderField() {
   if (biGenderFieldCacheRowsRef === rawRows && biGenderFieldCache) return biGenderFieldCache;
   const headers = getHeaders();
@@ -1011,9 +1027,9 @@ function getBiGenderValue(row) {
 }
 
 function getQuestionnaireGenderValue(row) {
-  const v = getSingleLabel("q34", str(row.q34));
-  if (v === "男" || v === "女" || v === "不方便透露") return v;
-  return "";
+  const raw = str(row.q34);
+  const labeled = getSingleLabel("q34", raw);
+  return normalizeQuestionnaireGender(labeled || raw);
 }
 
 function getCurrentWeightPlan() {
@@ -1120,7 +1136,7 @@ function getAttrQuestions() {
     id: "q34_survey",
     name: "用户属性｜性别（问卷）",
     type: "single_derived",
-    labels: { 男: "男", 女: "女", 不方便透露: "不方便透露" },
+    labels: { 男: "男", 女: "女", 未知: "未知" },
     valueFn: (row) => getQuestionnaireGenderValue(row),
   });
   base.push(
@@ -3291,7 +3307,7 @@ function renderWordcloudPanel() {
     rowsForTable.push({
       id: str(row.id),
       age: getSingleLabel("q33", str(row.q33)),
-      gender: getSingleLabel("q34", str(row.q34)),
+      gender: getQuestionnaireGenderValue(row),
       answer: parts.join(" | "),
     });
   }
